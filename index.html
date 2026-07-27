@@ -76,7 +76,13 @@
 
     /* 💡 修正箇所①：スマホ用の縦並びレイアウト修正 */
     .turnover-container { display: block; padding-bottom: 16px; }
-    .turnover-row-1 { display: flex; flex-direction: column; gap: 16px; width: 100%; align-items: center; }
+    .turnover-row-1 { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; align-items: stretch; }
+    .keepa-token-panel { flex: 1 1 100%; }
+    .turnover-row-1 .metrics-list { flex: 1 1 auto; min-width: 0; }
+    .turnover-row-1 .chart-box { flex: 0 0 110px; width: 110px; }
+    .turnover-row-1 .chart-box .circular-chart { width: 110px; height: 110px; }
+    .turnover-row-1 .chart-box .percentage span:first-child { font-size: 16px !important; }
+    .turnover-row-1 .chart-box .percentage span:last-child { font-size: 9px !important; }
     
     .keepa-token-panel { width: 100%; box-sizing: border-box; }
     .metrics-list { display: flex; flex-direction: column; gap: 6px; justify-content: center; }
@@ -150,6 +156,17 @@
 
     #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; justify-content: center; align-items: center; transition: opacity 0.5s; }
     .splash-img { width: 100%; height: 100%; object-fit: cover; }
+    #barcodeTestVideo {
+      width: 100% !important;
+      height: 200px !important;
+      overflow: hidden;
+      position: relative;
+    }
+    #barcodeTestVideo video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover;
+    }
     .splash-text { position: absolute; bottom: 60px; color: white; font-size: 14px; font-weight: bold; letter-spacing: 2px; animation: pulse 1.5s infinite; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 

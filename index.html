@@ -16,6 +16,8 @@
   <link rel="shortcut icon" href="https://i.ibb.co/Tx2N76YL/icon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- 🚀 JANコード専用の爆速解析エンジン(Quagga) -->
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
   
   <style>
     body { 
@@ -311,7 +313,7 @@
   <div id="ptr-indicator">⬇️ 引っ張って更新...</div>
 
   <div id="loader">
-    <img class="splash-img" src="https://i.ibb.co/vK1Sdtp/Search.png" alt="Splash">
+    <img class="splash-img" src="https://i.ibb.co/R49z2pwV/Chat-GPT-Image-2026-5-31-20-50-12.png" alt="Splash">
     <div class="splash-text">SYSTEM LOADING...</div>
   </div>
 
@@ -1032,7 +1034,17 @@
     <div class="content">
       <div class="search-box">
         <input type="text" id="amazonKw" placeholder="ASINや型番を入力..." onkeypress="if(event.keyCode==13) runAmazonResearch()">
+        <button onclick="startBarcodeScanTest()" id="scanTestBtn" style="background:#4a5568; padding:0 12px; flex-shrink:0;"><i class="fas fa-camera"></i></button>
         <button onclick="runAmazonResearch()" id="searchBtn">解析</button>
+      </div>
+
+      <div id="barcodeTestScannerArea" style="display:none; width:100%; max-width:450px; margin: 12px auto; border: 1px solid #cbd5e0; border-radius: 12px; overflow: hidden; position: relative; background:#111; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <div id="barcodeTestVideo" style="display:block; line-height:0;"></div>
+        <canvas id="barcodeTestCanvas" style="display:none;"></canvas>
+        <button onclick="stopBarcodeScanTest()" style="position:absolute; top:8px; right:8px; z-index:13; background:rgba(0,0,0,0.5); color:white; border:none; border-radius:50%; width:32px; height:32px; font-size:14px;"><i class="fas fa-times"></i></button>
+        <div id="barcodeTestStatus" style="position:absolute; bottom:0; left:0; width:100%; text-align:center; background:linear-gradient(transparent, rgba(0,0,0,0.85)); color:#ffffff; padding:20px 0 12px 0; font-size:13px; font-weight:bold; letter-spacing:0.5px; z-index:12; pointer-events:none;">
+          バーコード（JANコード）読み取り中...
+        </div>
       </div>
 
       <div id="amazon-container">
@@ -1399,6 +1411,8 @@
 
       <label style="color:#d9534f;">AmazonセラーID(必須)</label>
       <input type="text" id="cfgSellerId" placeholder="A1234567890XYZなど">
+
+      <button onclick="enablePushNotifications(this)" style="width:100%; background:#ff9900; color:white; padding:10px; border:none; border-radius:6px; font-weight:bold; margin-top:10px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">🔔 スマホに通知を送る許可をする</button>
 
       <div class="modal-actions">
         <button style="background:#e2e8f0; color:#4a5568;" onclick="closeConfig()">閉じる</button>
@@ -2473,6 +2487,58 @@ async function syncPatrolData() {
           loadAmazonHistory();
         }
         
+        // 🚀 カメラ（QuaggaJS）でバーコードスキャン
+        function startBarcodeScanTest() {
+          const area = document.getElementById('barcodeTestScannerArea');
+          const status = document.getElementById('barcodeTestStatus');
+          
+          area.style.display = 'block';
+          status.innerText = "カメラ初期化中...";
+
+          Quagga.init({
+            inputStream: {
+              name: "Live",
+              type: "LiveStream",
+              target: document.getElementById('barcodeTestVideo'), 
+              constraints: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "environment" },
+              area: { top: "0%", right: "0%", left: "0%", bottom: "0%" } 
+            },
+            decoder: { readers: ["ean_reader", "ean_8_reader"] },
+            locate: true 
+          }, function(err) {
+            if (err) {
+              console.error(err);
+              alert("カメラの起動に失敗しました。");
+              area.style.display = 'none';
+              return;
+            }
+            Quagga.start();
+            status.innerText = "バーコード（JANコード）読み取り中...";
+          });
+
+          Quagga.onDetected(function(result) {
+            if (result && result.codeResult && result.codeResult.code) {
+              const code = result.codeResult.code;
+              const matched = code.match(/^(49\d{11}|45\d{11})$/);
+              if (matched) {
+                status.innerText = "🎯 読み取り成功！";
+                document.getElementById('amazonKw').value = matched[1]; 
+                if (navigator.vibrate) navigator.vibrate(200); 
+                Quagga.offDetected();
+                setTimeout(() => {
+                  stopBarcodeScanTest();
+                  runAmazonResearch(); 
+                }, 500);
+              }
+            }
+          });
+        }
+
+        function stopBarcodeScanTest() {
+          try { Quagga.stop(); Quagga.offDetected(); } catch(e) {}
+          document.getElementById('barcodeTestScannerArea').style.display = 'none';
+        }
+
         async function runAmazonResearch(fallbackTitle) {
           const kw = document.getElementById("amazonKw").value.trim(); 
           const resView = document.getElementById("amazonResult"); 
@@ -6139,9 +6205,18 @@ async function syncPatrolData() {
           const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js'); await navigator.serviceWorker.ready;
           const currentToken = await getToken(messaging, { vapidKey: "BJMWJMJx2CGiDNuLq7xixOKeBlN8Hd3vNvbx4QmK7mf1R3ccUCXuP0o-ZlsRurw7MhpiwWLZuvu57twS5jypqlU", serviceWorkerRegistration: registration });
           if (currentToken) {
-            AppStorage.set("sh_fcm_token", currentToken); const sniperUrl = AppStorage.get("sh_sniper_url", "");
-            if (sniperUrl) { fetchWithAuth(sniperUrl, { method: 'POST', body: JSON.stringify({ command: 'saveToken', token: currentToken }) }); alert("✅ 通知設定完了！"); btn.innerText = "✅ 通知設定完了"; } 
-            else { alert("⚠️ S側 GAS URL を設定してください！"); btn.innerText = "🔔 通知許可する"; btn.disabled = false; }
+            AppStorage.set("sh_fcm_token", currentToken);
+            try {
+              const settingsUrl = getSettingsApiUrl();
+              if (settingsUrl) {
+                await fetchWithAuth(settingsUrl, { method: "PUT", body: JSON.stringify({ fcm_token: currentToken }) });
+              }
+              alert("✅ 通知設定完了！");
+              btn.innerText = "✅ 通知設定完了";
+            } catch (e) {
+              alert("⚠️ 保存に失敗しました。もう一度お試しください。");
+              btn.innerText = "🔔 通知許可する"; btn.disabled = false;
+            }
           } else { alert("❌ トークン取得失敗"); btn.innerText = "🔔 通知許可する"; btn.disabled = false; }
         } else { alert("通知ブロック中。"); btn.innerText = "🔔 通知許可する"; btn.disabled = false; }
       } catch (err) { alert("エラー\n" + err.message); btn.innerText = "🔔 通知許可する"; btn.disabled = false; }

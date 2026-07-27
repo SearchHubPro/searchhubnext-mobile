@@ -105,7 +105,8 @@
     .percentage span { font-size: 9px; color: #565959; margin-top: -3px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 
     .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px 20px 16px; }
-    .dash-btn { position: relative; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 10px; text-align: center; color: #1a365d; font-weight: bold; font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;}
+    .dash-btn { position: relative; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 10px; text-align: center; color: #1a365d; font-weight: bold; font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 0; width: 100%; box-sizing: border-box; }
+    .dash-btn, .dash-btn * { white-space: normal !important; word-break: break-word; }
     .dash-btn:active { transform: scale(0.95); background: #f8fafc; }
     .dash-btn i { font-size: 26px; }
     .dash-dot { display: none; position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; background-color: #e53e3e; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 2px solid white; }
@@ -1926,9 +1927,15 @@
         const profitLabel = currentHomeMode === 'purchase' ? '想定利益' : '確定利益';
         const marginLabel = currentHomeMode === 'purchase' ? '想定利益率' : '利益率';
 
+        // 💡 lastDataDayが未提供のため、実際にデータがある最後の日をbars配列から逆算する
+        let lastDataDay = monthDataObj.bars.length;
+        for (let i = monthDataObj.bars.length - 1; i >= 0; i--) {
+          if (monthDataObj.bars[i] > 0) { lastDataDay = i + 1; break; }
+        }
+
         contentArea.innerHTML = `
           <div class="summary-header">
-            <div class="summary-date">${currentHomeMonth.split('/')[1]}月${monthDataObj.lastDataDay}日 時点</div>
+            <div class="summary-date">${currentHomeMonth.split('/')[1]}月${lastDataDay}日 時点</div>
             <div class="summary-values">
               <div class="summary-box">
                 <div class="summary-label">合計 ${currentHomeMode==='purchase'?'仕入':'販売'}</div>

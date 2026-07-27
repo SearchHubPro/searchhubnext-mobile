@@ -28,7 +28,14 @@
       color: #333; 
       padding-bottom: env(safe-area-inset-bottom); 
       min-height: 100vh;
+      overflow-x: hidden;
     }
+    /* 🌟 Amazonリサーチ結果カード:PC用の横並び(160px画像+120px固定列)は
+       スマホ幅に入りきらないため、縦積みに切り替える */
+    .amazon-result-row { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; padding: 16px !important; }
+    .amazon-result-img > div { width: 100% !important; height: 140px !important; }
+    .amazon-result-stats { width: 100% !important; flex-direction: row !important; }
+    .amazon-result-stats > div { flex: 1; }
     
     .header-wrapper { position: sticky; top: 0; z-index: 100; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
     .header { background-color: #ffffff; color: #333; padding: calc(14px + env(safe-area-inset-top)) 24px 14px 24px; display: flex; align-items: center; justify-content: space-between; position: relative; border-bottom: 2px solid #000000; margin: 0 !important; }
@@ -201,6 +208,10 @@
       .view {
         background-color: transparent; 
       }
+      /* 🌟 PC幅ではAmazonリサーチ結果カードを元の横並びに戻す */
+      .amazon-result-row { flex-direction: row !important; align-items: center !important; padding: 24px !important; }
+      .amazon-result-img > div { width: 160px !important; height: 160px !important; }
+      .amazon-result-stats { width: 120px !important; flex-direction: column !important; }
       
       .content {
         padding: 24px; 
@@ -2673,11 +2684,11 @@ async function syncPatrolData() {
 
             // 💡 2. 左・中・右 の完璧な横並びレイアウト！（PC版最適化）
             resView.innerHTML = `
-              <div style="display:flex; flex-direction:row; gap:24px; align-items:center; background:#fff; border-radius:12px; border:1px solid #e2e8f0; padding:24px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+              <div class="amazon-result-row" style="display:flex; flex-direction:row; gap:24px; align-items:center; background:#fff; border-radius:12px; border:1px solid #e2e8f0; padding:24px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
                 
-                ${imgHtml}
+                <div class="amazon-result-img">${imgHtml}</div>
                 
-                <div style="flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:12px;">
+                <div class="amazon-result-mid" style="flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:12px;">
                   <div style="font-size:18px; color:#4a5568; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">型番: <span id="itemModelText" style="color:#1a365d; font-size:24px; font-weight:900;">${modelNum !== '不明' ? modelNum : productTitle.substring(0,30)+'...'}</span></div>
                   
                   <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="copyAsin('${asin}')">
@@ -2695,7 +2706,7 @@ async function syncPatrolData() {
                   </div>
                 </div>
                 
-                <div style="display:flex; flex-direction:column; align-items:stretch; gap:16px; flex-shrink:0; width:120px;">
+                <div class="amazon-result-stats" style="display:flex; flex-direction:column; align-items:stretch; gap:16px; flex-shrink:0; width:120px;">
                   <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f0f4ff; border:2px solid #dbeafe; padding:16px 4px; border-radius:12px; box-shadow:inset 0 2px 4px rgba(0,0,0,0.05);">
                     <span style="font-size:13px; color:#4a72b2; font-weight:bold; margin-bottom:6px;">中古出品</span>
                     <span style="font-size:32px; font-weight:900; color:#2c4c8f; line-height:1;">${usedOffers}</span>

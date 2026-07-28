@@ -1927,10 +1927,18 @@
         const profitLabel = currentHomeMode === 'purchase' ? '想定利益' : '確定利益';
         const marginLabel = currentHomeMode === 'purchase' ? '想定利益率' : '利益率';
 
-        // 💡 lastDataDayが未提供のため、実際にデータがある最後の日をbars配列から逆算する
-        let lastDataDay = monthDataObj.bars.length;
-        for (let i = monthDataObj.bars.length - 1; i >= 0; i--) {
-          if (monthDataObj.bars[i] > 0) { lastDataDay = i + 1; break; }
+        // 💡 今月を表示中は、常に「今日の実際の日付」を使う。過去月は、その月で
+        // 実際にデータがある最後の日を使う(未来の日付を指してしまうのを防ぐため)
+        const todayForLabel = new Date();
+        const todayMonthStr = `${todayForLabel.getFullYear()}/${String(todayForLabel.getMonth() + 1).padStart(2, "0")}`;
+        let lastDataDay;
+        if (currentHomeMonth === todayMonthStr) {
+          lastDataDay = todayForLabel.getDate();
+        } else {
+          lastDataDay = monthDataObj.bars.length;
+          for (let i = monthDataObj.bars.length - 1; i >= 0; i--) {
+            if (monthDataObj.bars[i] > 0) { lastDataDay = i + 1; break; }
+          }
         }
 
         contentArea.innerHTML = `

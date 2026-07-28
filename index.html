@@ -6153,14 +6153,26 @@ async function syncPatrolData() {
             const d = new Date(a.checkedAt);
             const timeStr = isNaN(d.getTime()) ? "" : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
             const isFound = (a.status || "").includes("あり");
+            let statusLabel = escapeHtml(a.status);
+            let statusColor = '#a0aec0';
+            let borderColor = '#cbd5e0';
+            if (isFound && a.isNew) {
+              statusLabel = escapeHtml(a.status) + ' 🎉新着';
+              statusColor = '#38a169';
+              borderColor = '#38a169';
+            } else if (isFound) {
+              statusLabel = escapeHtml(a.status) + '(既知)';
+              statusColor = '#a0aec0';
+              borderColor = '#cbd5e0';
+            }
             return `
-              <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-left:3px solid ${isFound ? '#38a169' : '#cbd5e0'}; border-radius:6px; padding:8px 10px; margin-bottom:6px; font-size:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-left:3px solid ${borderColor}; border-radius:6px; padding:8px 10px; margin-bottom:6px; font-size:12px;">
                 <div style="min-width:0;">
                   <span style="font-weight:bold; color:#4a5568;">${escapeHtml(a.site)}</span>
                   <span style="color:#718096; margin-left:6px;">${escapeHtml(a.title || '')}</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                  <span style="color:${isFound ? '#38a169' : '#a0aec0'}; font-weight:bold;">${escapeHtml(a.status)}</span>
+                  <span style="color:${statusColor}; font-weight:bold;">${statusLabel}</span>
                   <span style="color:#a0aec0; font-size:11px;">${timeStr}</span>
                 </div>
               </div>`;

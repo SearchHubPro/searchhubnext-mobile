@@ -5248,56 +5248,6 @@ async function syncPatrolData() {
 
     // 🌟 Keepa解析→ヤフオク実績確認→セラー抽出を、空になるまで繰り返す共通処理
     // (CSVドロップ後の即時実行と、「続きを実行」ボタンの両方から呼ばれる)
-    async function runResearchPipeline(labelEl, idleText) {
-      const researcherGasUrl = AppStorage.get("sh_researcher_gas_url", "");
-      const researchJobUrl = researcherGasUrl.replace(/\/manager\/?$/, '/research-job');
-
-      try {
-        let keepaTotal = 0;
-        let tokenOut = false;
-        for (let i = 0; i < 30; i++) {
-          if (labelEl) labelEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right: 6px; color:#a855f7;"></i> Keepa解析中(${keepaTotal}件完了)...`;
-          const r = await fetchWithAuth(researchJobUrl + '/keepa', { method: 'POST' });
-          const rj = await r.json();
-          if (rj.gated) { tokenOut = true; break; }
-          if (!rj.processed) break;
-          keepaTotal += rj.processed;
-          if (typeof rj.tokensLeft === 'number' && rj.tokensLeft < 20) { tokenOut = true; break; }
-        }
-
-        let marketTotal = 0;
-        for (let i = 0; i < 50; i++) {
-          if (labelEl) labelEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right: 6px; color:#a855f7;"></i> ヤフオク確認中(${marketTotal}件完了)...`;
-          const r2 = await fetchWithAuth(researchJobUrl + '/market-check', { method: 'POST' });
-          const rj2 = await r2.json();
-          if (!rj2.processed) break;
-          marketTotal += rj2.processed;
-        }
-
-        let sellerExtracted = 0, sellerNewAsins = 0;
-        if (!tokenOut) {
-          for (let i = 0; i < 30; i++) {
-            if (labelEl) labelEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right: 6px; color:#a855f7;"></i> セラー抽出中(${sellerExtracted}件)...`;
-            const r3 = await fetchWithAuth(researchJobUrl + '/seller', { method: 'POST' });
-            const rj3 = await r3.json();
-            if (!rj3.success) break;
-            if (rj3.gated) { tokenOut = true; break; }
-            sellerExtracted += rj3.extracted || 0;
-            sellerNewAsins += rj3.newAsinsFound || 0;
-            if (rj3.tokenExhausted) { tokenOut = true; break; }
-            if (!rj3.checkedCount) break;
-          }
-        }
-
-        const tokenNote = tokenOut ? '\n\n⚠️ Keepaのトークン残量が少なくなったため、途中で処理を打ち切りました。しばらく時間を置いてから「続きを実行」ボタンを押してください。' : '';
-        alert(`✅ 解析が完了しました！\nKeepa: ${keepaTotal}件 / ヤフオク確認: ${marketTotal}件 / セラー抽出: ${sellerExtracted}件(新規ASIN${sellerNewAsins}件)\nリサーチリストを確認してください。${tokenNote}`);
-      } catch (e2) {
-        alert('⚠️ 解析処理でエラーが出ました。予約時刻または「続きを実行」ボタンで再試行してください。');
-      } finally {
-        if (labelEl) labelEl.innerHTML = idleText;
-      }
-    }
-
     // 🌟 「続きを実行」ボタン用(新規ASIN登録なしで、残ってる分の処理だけ進める)
     // 🌟 巡回を今すぐ開始(ウォッチャー/スナイパー共通、拡張機能が/patrol/flagで検知する)
     async function startPatrolNow() {
@@ -5327,11 +5277,18 @@ async function syncPatrolData() {
 
     async function continueResearchPipeline() {
       const btn = document.getElementById('btn-continue-research');
-      const originalText = btn.innerHTML;
+      const mgrUrl = AppStorage.get("sh_researcher_gas_url", "") || AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
+      if (!mgrUrl) { alert("先に⚙️設定でマネージャーAPI URLを入力してください！"); return; }
       btn.disabled = true;
-      await runResearchPipeline(btn, originalText);
-      btn.disabled = false;
-      if (typeof loadResearcherData === 'function') loadResearcherData();
+      try {
+        const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "startResearchNow" }) });
+        const result = await res.json();
+        alert(result.success ? "✅ " + result.message : "❌ " + (result.message || "失敗しました"));
+      } catch (e) {
+        alert("通信エラーが発生しました");
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     function processKeepaCSV(file) {
@@ -5400,7 +5357,7 @@ async function syncPatrolData() {
           }
 
           if (json.success) {
-            await runResearchPipeline(dropLabel, originalText);
+            alert(`✅ ${json.added || asins.length}件のASINをリサーチリストへ登録しました！\n(${json.skipped || 0}件は既に登録済みのためスキップ)\n\nこのあとは自動リサーチの予約実行が拾って、少しずつKeepa評価・ヤフオク確認を進めます。`);
             if (typeof loadResearcherData === 'function') loadResearcherData();
           } else {
             alert(`❌ 自動リサーチ開始エラー:\n${json.message}`);
@@ -6090,13 +6047,24 @@ async function syncPatrolData() {
           const d = new Date(l.created_at);
           const dateStr = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
           const label = JOB_TYPE_LABELS[l.job_type] || l.job_type;
+
+          // 🌟 保存されてるlevelは全部"success"になりがちなので、メッセージの中身(JSON)を
+          // 見て、本当にエラー・スキップが含まれてないか判定し直す
+          let statusIcon = "✅"; let statusColor = "#38a169";
+          const msgLower = (l.message || "").toLowerCase();
+          if (l.level === "error" || msgLower.includes('"error"') || msgLower.includes("error:")) {
+            statusIcon = "❌"; statusColor = "#e53e3e";
+          } else if (msgLower.includes('"skipped"')) {
+            statusIcon = "⏭️"; statusColor = "#a0aec0";
+          }
+
           return `
-            <div style="background:#fff; border-left:3px solid ${levelColor[l.level] || "#4a5568"}; border-radius:6px; padding:10px 12px; margin-bottom:6px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+            <div style="background:#fff; border-left:3px solid ${statusColor}; border-radius:6px; padding:10px 12px; margin-bottom:6px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
               <div style="display:flex; justify-content:space-between; font-size:11px; color:#718096; margin-bottom:2px;">
-                <span>${label}</span>
+                <span>${statusIcon} ${label}</span>
                 <span>${dateStr}</span>
               </div>
-              <div style="font-size:12px; color:${levelColor[l.level] || "#333"}; word-break:break-all;">${escapeHtml(l.message)}</div>
+              <div style="font-size:12px; color:${statusColor}; word-break:break-all;">${escapeHtml(l.message)}</div>
             </div>`;
         }).join("");
       } catch (e) {

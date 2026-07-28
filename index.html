@@ -2592,8 +2592,9 @@ async function syncPatrolData() {
           
           resView.innerHTML = '<div class="loading-spinner">⌛ Keepa APIと高速通信・解析中...</div>';
           
-          // 🚨 以前はここで履歴を消してた（'none'）のを消去！代わりにクラスを付与！
+          // 🌟 検索したら履歴は完全に隠す(店舗版と同じ挙動)
           document.getElementById('amazon-container').classList.add('search-active');
+          document.getElementById('amazonHistoryArea').style.display = 'none';
           resView.style.display = 'block';
           
           try {

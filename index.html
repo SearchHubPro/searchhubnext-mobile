@@ -520,7 +520,7 @@
 
   <div id="view-job-logs" class="view">
     <div class="content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px;">
         <div style="font-size:12px; color:#718096;">直近100件の実行ログです。</div>
         <button onclick="loadJobLogs()" style="background:#edf2f7; color:#4a5568; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:11px; cursor:pointer;"><i class="fas fa-sync-alt"></i> 更新</button>
       </div>
@@ -732,38 +732,34 @@
   <div id="view-ledger" class="view">
     <div class="content">
       
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;">
         
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button onclick="window.open('https://sellercentral.amazon.co.jp/order-reports-and-feeds/reports/allOrders#', '_blank'); window.open('https://sellercentral.amazon.co.jp/payments/reports-repository/ref=xx_rrepo_dnav_xx', '_blank');" 
-                  style="background:#4a5568; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer; display:flex; align-items:center;">
-            <i class="fas fa-external-link-alt" style="margin-right: 4px;"></i> レポート取得
-          </button>
+        <button onclick="window.open('https://sellercentral.amazon.co.jp/order-reports-and-feeds/reports/allOrders#', '_blank'); window.open('https://sellercentral.amazon.co.jp/payments/reports-repository/ref=xx_rrepo_dnav_xx', '_blank');" 
+                style="background:#4a5568; color:white; border:none; padding:6px 10px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer; display:flex; align-items:center;">
+          <i class="fas fa-external-link-alt" style="margin-right: 4px;"></i> レポート取得
+        </button>
 
-          <label id="mini-drop-zone" style="background:#f8fafc; border: 2px dashed #cbd5e0; color:#4a5568; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; display:flex; align-items:center; transition: all 0.2s;" 
-                 ondragover="handleDragOverMini(event)" 
-                 ondragleave="handleDragLeaveMini(event)" 
-                 ondrop="handleDropMini(event)">
-            <i class="fas fa-file-upload" style="margin-right: 6px;"></i> レポートをドロップ
-            <input type="file" style="display:none;" accept=".txt,.csv" multiple onchange="processFiles(event.target.files)">
-          </label>
-        </div>
+        <label id="mini-drop-zone" style="background:#f8fafc; border: 2px dashed #cbd5e0; color:#4a5568; padding:4px 10px; border-radius:6px; font-size:10px; font-weight:bold; cursor:pointer; display:flex; align-items:center; transition: all 0.2s;" 
+               ondragover="handleDragOverMini(event)" 
+               ondragleave="handleDragLeaveMini(event)" 
+               ondrop="handleDropMini(event)">
+          <i class="fas fa-file-upload" style="margin-right: 6px;"></i> レポートをドロップ
+          <input type="file" style="display:none;" accept=".txt,.csv" multiple onchange="processFiles(event.target.files)">
+        </label>
 
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button onclick="enrichLedgerImages()" id="btn-enrich-ledger-img" style="background:#805ad5; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-            <i class="fas fa-image"></i> 既存データの画像を取得
-          </button>
-          <button onclick="openFleaRegisterModal()" style="background:#d69e2e; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-            <i class="fas fa-store"></i> フリマ登録
-          </button>
-          <button onclick="openCsvExportModal()" style="background:#38a169; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-            <i class="fas fa-file-csv"></i> CSV出力
-          </button>
-          <button onclick="loadLedgerData()" style="background:#1a365d; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-            <i class="fas fa-sync-alt"></i> 最新を取得
-          </button>
-          <span style="font-size:12px; font-weight:bold; color:#4a5568;" id="ledgerCount">表示中: ---件</span>
-        </div>
+        <button onclick="enrichLedgerImages()" id="btn-enrich-ledger-img" style="background:#805ad5; color:white; border:none; padding:6px 10px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+          <i class="fas fa-image"></i> 画像取得
+        </button>
+        <button onclick="openFleaRegisterModal()" style="background:#d69e2e; color:white; border:none; padding:6px 10px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+          <i class="fas fa-store"></i> フリマ登録
+        </button>
+        <button onclick="openCsvExportModal()" style="background:#38a169; color:white; border:none; padding:6px 10px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+          <i class="fas fa-file-csv"></i> CSV出力
+        </button>
+        <button onclick="loadLedgerData()" style="background:#1a365d; color:white; border:none; padding:6px 10px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+          <i class="fas fa-sync-alt"></i> 最新を取得
+        </button>
+        <span style="font-size:11px; font-weight:bold; color:#4a5568; margin-left:auto;" id="ledgerCount">表示中: ---件</span>
         
       </div> 
 
@@ -914,24 +910,22 @@
  <div id="view-bulk-register" class="view">
     <div class="content">
       
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <button onclick="loadBulkRegisterData()" style="background:#1a365d; color:white; border:none; padding:8px 16px; border-radius:8px; font-weight:bold; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;">
+        <button onclick="loadBulkRegisterData()" style="background:#1a365d; color:white; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
           <i class="fas fa-sync-alt"></i> データを取得
         </button>
-        
-        <div style="display:flex; gap:8px;">
-          <button onclick="openHazmatGuide()" style="background:#e53e3e; color:white; border:none; padding:12px 20px; border-radius:8px; font-weight:bold; font-size:15px; display:flex; align-items:center; gap:6px; box-shadow:0 4px 6px rgba(0,0,0,0.2); cursor:pointer;">
-            <i class="fas fa-exclamation-triangle"></i> 危険物入力フローガイド
-          </button>
 
-          <a href="https://sellercentral.amazon.co.jp/product-search/bulk" target="_blank" style="background:#ff9900; color:white; border:none; padding:12px 24px; border-radius:8px; font-weight:bold; font-size:15px; text-decoration:none; display:flex; align-items:center; box-shadow:0 4px 6px rgba(0,0,0,0.2);">
-            <i class="fab fa-amazon" style="margin-right:6px;"></i> アップロードへ
-          </a>
-          
-          <button id="bulkCompleteBtn" onclick="completeBulkRegistration()" style="background:#07A27B; color:white; border:none; padding:12px 24px; border-radius:8px; font-weight:bold; font-size:15px; box-shadow:0 4px 6px rgba(0,0,0,0.2); cursor:pointer;">
-            ✅ 登録完了（出品中へ変更）
-          </button>
-        </div>
+        <button onclick="openHazmatGuide()" style="background:#e53e3e; color:white; border:none; padding:6px 10px; border-radius:8px; font-weight:bold; font-size:11px; display:flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;">
+          <i class="fas fa-exclamation-triangle"></i> 危険物ガイド
+        </button>
+
+        <a href="https://sellercentral.amazon.co.jp/product-search/bulk" target="_blank" style="background:#ff9900; color:white; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; font-size:11px; text-decoration:none; display:flex; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+          <i class="fab fa-amazon" style="margin-right:4px;"></i> アップロードへ
+        </a>
+        
+        <button id="bulkCompleteBtn" onclick="completeBulkRegistration()" style="background:#07A27B; color:white; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;">
+          ✅ 登録完了（出品中へ変更）
+        </button>
       </div>
 
       <div id="bulkLoading" style="display:none; text-align:center; padding:20px; color:#2b6cb0; font-weight:bold; font-size:13px;">⌛ データを読み込み中...</div>
@@ -990,7 +984,7 @@
   </div>
   <div id="view-purchase-list" class="view">
     <div class="content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px;">
         <span style="font-size:12px; font-weight:bold; color:#4a5568;" id="purchaseListCount">待機中...</span>
         <div style="display:flex; gap:6px;">
           <button onclick="loadPurchaseListData()" style="background:#dd6b20; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
@@ -1149,7 +1143,7 @@
 
   <div id="view-researcher" class="view">
     <div class="content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px;">
         
         <div style="display:flex; gap:12px; align-items:center;">
           <span style="font-size:12px; font-weight:bold; color:#4a5568;" id="resCount">候補を読み込み中...</span>
@@ -1213,7 +1207,7 @@
 
   <div id="view-price" class="view">
     <div class="content">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:0 4px;">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px; padding:0 4px; gap:8px;">
         <span style="font-size:12px; font-weight:bold; color:#4a5568;" id="inventoryCount">在庫を読み込み中...</span>
         
         <div style="display:flex; gap:8px;">
@@ -1344,22 +1338,22 @@
   </div>
  <div id="view-expense" class="view">
     <div class="content">
-     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div style="display:flex; gap:12px; align-items:center;">
-          <h2 style="font-size:18px; margin:0; color:#1a365d;"><i class="fas fa-file-invoice-dollar"></i> 経費一覧</h2>
-          <span style="font-size:12px; font-weight:bold; color:#718096;" id="expenseTotalCount">読み込み中...</span>
+     <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px;">
+        <div style="display:flex; gap:10px; align-items:center;">
+          <h2 style="font-size:16px; margin:0; color:#1a365d;"><i class="fas fa-file-invoice-dollar"></i> 経費一覧</h2>
+          <span style="font-size:11px; font-weight:bold; color:#718096;" id="expenseTotalCount">読み込み中...</span>
         </div>
         
-        <div style="display:flex; gap:10px; align-items:center;">
-          <select id="expense-month-selector" onchange="renderExpenseTable()" style="padding:10px; border-radius:8px; border:1px solid #cbd5e0; font-weight:bold; font-size:14px; outline:none; background:#fff; color:#1a365d; cursor:pointer;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+          <select id="expense-month-selector" onchange="renderExpenseTable()" style="padding:6px 8px; border-radius:8px; border:1px solid #cbd5e0; font-weight:bold; font-size:12px; outline:none; background:#fff; color:#1a365d; cursor:pointer;">
             <option value="ALL">すべて表示</option>
           </select>
 
-          <button onclick="openExpenseModal()" style="background:#e53e3e; color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; box-shadow:0 4px 6px rgba(229,62,62,0.2); display:flex; align-items:center; gap:6px;">
-            <i class="fas fa-plus-circle"></i> 経費を新規入力
+          <button onclick="openExpenseModal()" style="background:#e53e3e; color:white; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer; box-shadow:0 2px 4px rgba(229,62,62,0.15); display:flex; align-items:center; gap:4px;">
+            <i class="fas fa-plus-circle"></i> 新規入力
           </button>
           
-          <button onclick="loadExpenseListData()" style="background:#1a365d; color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer;">
+          <button onclick="loadExpenseListData()" style="background:#1a365d; color:white; border:none; padding:6px 10px; border-radius:8px; font-weight:bold; font-size:11px; cursor:pointer;">
             <i class="fas fa-sync-alt"></i> 更新
           </button>
         </div>

@@ -472,7 +472,7 @@
         <span style="font-size:10px; color:#718096; font-weight:normal; margin-top:4px;">帳簿管理・月別分析・価格改定</span>
       </button>
 
-      <button class="dash-btn" onclick="openView('view-researcher-menu')">
+      <button class="dash-btn" onclick="openView('view-researcher-menu'); clearPipelineBadge();">
         <i class="fas fa-clipboard-check" style="color:#a855f7;"></i>SearchHub Researcher<span class="dash-dot" id="dash-dot-researcher"></span>
         <span style="font-size:10px; color:#718096; font-weight:normal; margin-top:4px;">Keepa一括解析・利益商品開拓</span>
       </button>
@@ -1802,7 +1802,7 @@
           const dashDotRes = document.getElementById('dash-dot-researcher');
           const dashDotResInner = document.getElementById('dash-dot-researcher-inner');
           
-          const isActive = (homeData.researcherActive === true);
+          const isActive = (homeData.researcherActive === true) || (homeData.pipelineBadge === true);
 
           // 外側のボタンの処理
           if (dashDotRes) {
@@ -5855,6 +5855,18 @@ async function syncPatrolData() {
         alert("❌ 登録失敗: 通信エラーが発生しました");
         btn.innerText = originalText; btn.disabled = false;
       }
+    }
+
+    async function clearPipelineBadge() {
+      const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
+      if (!mgrUrl) return;
+      try {
+        await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "clearPipelineBadge" }) });
+        const dot = document.getElementById('dash-dot-researcher');
+        const dotInner = document.getElementById('dash-dot-researcher-inner');
+        if (dot) dot.classList.remove('active');
+        if (dotInner) dotInner.classList.remove('active');
+      } catch (e) {}
     }
 
     async function loadSellerGroupProgress() {

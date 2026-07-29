@@ -18,7 +18,7 @@ messaging.onBackgroundMessage((payload) => {
   // dataペイロードだけを使うことで、表示をこのコードだけに一本化する。
   const title = payload.data?.title || payload.notification?.title || "SearchHub";
   const body = payload.data?.body || payload.notification?.body || "";
-  const link = payload.data?.link || payload.fcmOptions?.link || "/";
+  const link = payload.data?.link || payload.fcmOptions?.link || "https://searchhubpro.github.io/searchhubnext-mobile/";
 
   // 🌟 同じ内容(タイトル+本文)には同じtagを付ける。ブラウザは同じtagの通知が
   // 来たら、新しく増やすのではなく既存のものを上書きしてくれるので、
@@ -36,6 +36,6 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/";
+  const url = event.notification.data?.url || "https://searchhubpro.github.io/searchhubnext-mobile/";
   event.waitUntil(clients.openWindow(url));
 });

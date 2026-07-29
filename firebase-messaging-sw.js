@@ -1,6 +1,11 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
+// 🌟 Service Workerの更新が、スマホ側ですぐに反映されない(古いバージョンが
+// 残り続ける)ことがあるため、新しいバージョンが来たら即座に切り替えるようにする
+self.addEventListener('install', () => { self.skipWaiting(); });
+self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
+
 firebase.initializeApp({
   apiKey: "AIzaSyApLErkBMaLTKLAVDeA_-aZYMnPilaDGU8",
   authDomain: "searchhub-mobile.firebaseapp.com",

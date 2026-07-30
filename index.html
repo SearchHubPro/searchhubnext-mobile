@@ -1579,6 +1579,10 @@
     let globalYahooAsins = [];
 
     window.checkYahooStatus = async function() {
+    // 🌟 ヤフオクチェッカーは未実装(サーバーは常に空を返す)。
+      //    そのうえ「データ無し」の分岐でResearcherの赤バッジまで消していたため、
+      //    バッジが一瞬ついて即消える原因になっていた。機能ごと無効化する。
+      return;
       const targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
       
       // 🚨 ここをResearcherではなく、ヤフオク専用のURLを呼び出すように変更！

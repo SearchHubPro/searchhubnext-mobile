@@ -2578,7 +2578,14 @@ async function syncPatrolData() {
             const resJson = await res.json();
             
             if (resJson.success) {
-              btn.style.background = "#38a169"; btn.innerHTML = "✅ 登録完了！";
+              // 🌟 仕入れリストに同じASINが残っていた場合、サーバー側で仕入れ日を
+              //    今日に書き換えている。何件直したかをボタンに出す。
+              btn.style.background = "#38a169";
+              btn.innerHTML = (resJson.purchaseListUpdated > 0)
+                ? "✅ 登録完了！（仕入れリストも更新）"
+                : "✅ 登録完了！";
+              // 仕入れリストを開いたままなら、次に開いた時に取り直させる
+              if (resJson.purchaseListUpdated > 0) { try { globalPurchaseListData = []; } catch (e) {} }
               setTimeout(() => {
                 closeConfirmModal();
                 btn.style.background = "#1a365d"; btn.innerHTML = "この内容で登録"; btn.disabled = false;
@@ -4136,6 +4143,17 @@ async function syncPatrolData() {
           (item.no != null && String(item.no).toLowerCase().includes(kw))
         );
       }
+      // 🌟 仕入れ日の古い順に並べる。まだ仕入れていない(日付が空の)ものは末尾に、
+      //    その中は登録番号順。サーバー側でも同じ順に並べているが、
+      //    古いmanagerのままでも画面だけは正しく並ぶようにここでも並べ替える。
+      filtered = filtered.slice().sort((a, b) => {
+        const da = (a.purchaseDate && a.purchaseDate !== '-') ? String(a.purchaseDate) : '';
+        const db = (b.purchaseDate && b.purchaseDate !== '-') ? String(b.purchaseDate) : '';
+        if (da && db) { if (da !== db) return da < db ? -1 : 1; }
+        else if (da) return -1;
+        else if (db) return 1;
+        return (Number(a.no) || 0) - (Number(b.no) || 0);
+      });
       countEl.innerText = `リスト: ${filtered.length}件`;
       if (filtered.length === 0) {
         resDiv.innerHTML = '<div class="card" style="text-align:center; color:#a0aec0; padding:30px;">条件に合う商品が見つかりません。</div>';

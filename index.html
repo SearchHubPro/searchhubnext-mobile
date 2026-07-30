@@ -5564,12 +5564,20 @@ async function syncPatrolData() {
           const label = JOB_TYPE_LABELS[l.job_type] || l.job_type;
           // 🌟 保存されてるlevelは全部"success"になりがちなので、メッセージの中身(JSON)を
           // 見て、本当にエラー・スキップが含まれてないか判定し直す
+          // 🌟 表示はサーバーが付けた level で決める。
+          //    error   … ❌ 赤(本当に対処が要るもの)
+          //    skipped … ⏭️ グレー(条件に合わず見送ったもの)
+          //    info    … ℹ️ グレー(開始・一時停止などのお知らせ。故障ではない)
+          //    success … ✅ 緑(完了)
+          //    以前は level を見ておらず、"skipped" の文字が無いものは全部緑になっていた。
           let statusIcon = "✅"; let statusColor = "#38a169";
           const msgLower = (l.message || "").toLowerCase();
           if (l.level === "error" || msgLower.includes('"error"') || msgLower.includes("error:")) {
             statusIcon = "❌"; statusColor = "#e53e3e";
           } else if (msgLower.includes('"skipped"')) {
             statusIcon = "⏭️"; statusColor = "#a0aec0";
+          } else if (l.level === "info") {
+            statusIcon = "ℹ️"; statusColor = "#a0aec0";
           }
           return `
             <div style="background:#fff; border-left:3px solid ${statusColor}; border-radius:6px; padding:10px 12px; margin-bottom:6px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">

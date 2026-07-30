@@ -5249,9 +5249,10 @@ async function syncPatrolData() {
               <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
                 ${status === "pending" ? `
                   <button onclick="approveSeller('${s.id}')" style="background:#38a169; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;">承認</button>
-                  <button onclick="rejectSeller('${s.id}')" style="background:#e53e3e; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;">却下</button>
+                  <button onclick="deferSeller('${s.id}')" style="background:#d69e2e; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;" title="90日たったら、その時の評価数・在庫数でもう一度判定します">見送り</button>
+                  <button onclick="blockSeller('${s.id}')" style="background:#e53e3e; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;" title="二度と表示しません">除外</button>
                 ` : `
-                  <button onclick="deleteSellerCandidate('${s.id}')" style="background:#e53e3e; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;">削除</button>
+                  <button onclick="deleteSellerCandidate('${s.id}')" style="background:#d69e2e; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;" title="90日たったら、その時の評価数・在庫数でもう一度判定します">見送り</button>
                 `}
               </div>
             </div>
@@ -5269,13 +5270,22 @@ async function syncPatrolData() {
       await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "approveSellerCandidate", id }) });
       loadSellerCandidates("pending");
     }
-    async function rejectSeller(id) {
+    // 🌟 見送り: 今は条件に合わないだけ。90日たったら忘れて、
+    //   次に出会った時に「その時点の評価数・在庫数」で判定し直す。
+    async function deferSeller(id) {
       const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
-      await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "rejectSellerCandidate", id }) });
+      await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "rejectSellerCandidate", id, mode: "defer" }) });
+      loadSellerCandidates("pending");
+    }
+    // 🌟 除外: このセラー自体が要らない。二度と表示しない。
+    async function blockSeller(id) {
+      if (!confirm("このセラーを今後いっさい表示しないようにしますか？\n（扱っている商品が合わない場合はこちら）")) return;
+      const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
+      await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "rejectSellerCandidate", id, mode: "block" }) });
       loadSellerCandidates("pending");
     }
     async function deleteSellerCandidate(id) {
-      if (!confirm("このセラーをセラーリストから削除しますか？")) return;
+      if (!confirm("このセラーをセラーリストから外しますか？\n（90日たったら、その時の評価数・在庫数でもう一度判定します）")) return;
       const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
       await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "deleteSellerCandidate", id }) });
       loadSellerCandidates("approved");

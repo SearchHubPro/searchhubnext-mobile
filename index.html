@@ -3154,6 +3154,12 @@ async function syncPatrolData() {
               throw new Error("GASエラー発生中: " + text.substring(0, 40) + "...");
             }
 
+            if (json.success && json.processing) {
+              globalResearcherData = [];
+              document.getElementById('resCount').innerText = `⌛ 処理中（残り${json.remaining}件）`;
+              resDiv.innerHTML = `<div class="card" style="text-align:center; padding:30px 10px; color:#805ad5; font-size:13px; font-weight:bold;">⌛ リサーチ処理中です（残り${json.remaining}件）<br><span style="font-size:11px; color:#a0aec0; font-weight:normal;">すべて終わると候補が一覧表示されます</span></div>`;
+              return;
+            }
             if (json.success) {
               globalResearcherData = json.data;
               asinCopyIndex = 0;

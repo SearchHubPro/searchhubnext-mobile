@@ -559,8 +559,7 @@
             <option value="B">【B】最安値から仕入値を出す</option>
           </select>
           <div style="font-size:11px; color:#718096; margin-bottom:12px; line-height:1.6;">
-            ウォッチャー・スナイパー両方の検索URLで使う仕入れ値の基準です。<br>
-            （以前は別々の設定でしたが、中身は同じものだったので1つにまとめました）
+            ウォッチャー・スナイパー両方の検索URLで使う仕入れ値の基準です。
           </div>
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">🚫 除外ワード(URL末尾用)</label>
           <textarea id="rs-excludeWords" rows="2" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:12px; margin-bottom:12px;"></textarea>
@@ -577,13 +576,7 @@
       <div id="rpanel-batch" class="rsetting-panel" style="display:none;">
         <div style="background:#f7fafc; border-radius:12px; padding:16px;">
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">一度に取得する件数 (BATCH_SIZE)</label>
-          <input type="number" id="rs-batchSize" min="1" max="100" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:12px;">
-          <div style="background:#e6f0fa; border-radius:8px; padding:12px; font-size:11px; color:#2c5282; line-height:1.7;">
-            Keepaへ1回のリクエストで問い合わせる件数です（推奨: 20）。<br>
-            1件につきKeepaトークンを1つ使います。<br>
-            回数の上限はありません。トークンが残っている限り、実行時間いっぱいまで繰り返します。<br>
-            ヤフオク相場の確認件数は、アクセス間隔の都合でシステム側の固定（10件）です。
-          </div>
+          <input type="number" id="rs-batchSize" min="1" max="100" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px;">
         </div>
       </div>
       <div id="rpanel-rank" class="rsetting-panel" style="display:none;">

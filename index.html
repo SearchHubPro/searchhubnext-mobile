@@ -1197,6 +1197,7 @@
       <label style="color:#d9534f;">AmazonセラーID(必須)</label>
       <input type="text" id="cfgSellerId" placeholder="A1234567890XYZなど">
       <button onclick="enablePushNotifications(this)" style="width:100%; background:#ff9900; color:white; padding:10px; border:none; border-radius:6px; font-weight:bold; margin-top:10px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">🔔 スマホに通知を送る許可をする</button>
+      <button onclick="sendTestNotification(this)" style="width:100%; background:#4a5568; color:white; padding:10px; border:none; border-radius:6px; font-weight:bold; margin-top:8px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">🧪 テスト通知を送ってみる</button>
       <div class="modal-actions">
         <button style="background:#e2e8f0; color:#4a5568;" onclick="closeConfig()">閉じる</button>
         <button style="background:#1a365d; color:white;" onclick="saveConfig()">設定を保存</button>
@@ -2142,7 +2143,33 @@ async function syncPatrolData() {
           const min = ('0' + date.getMinutes()).slice(-2);
           return `${y}/${m}/${d} ${h}:${min}`;
         }
-        function escapeHtml(str) { if(!str) return ""; return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+    
+    // 🌟 通知が本当に届くかを、リサーチの完了を待たずにその場で試すためのボタン。
+    //    届かない時、原因が「サーバー側」か「端末側」かをここで切り分けられる。
+    window.sendTestNotification = async function(btn) {
+      const original = btn.innerText;
+      btn.innerText = "\u231b 送信中..."; btn.disabled = true;
+      try {
+        const ssUrl = AppStorage.get("sh_ssurl", "");
+        const targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
+        if (!targetGasUrl) { alert("\u2699\ufe0f設定のURLが未登録です"); return; }
+        const res = await fetchWithAuth(targetGasUrl, {
+          method: 'POST',
+          body: JSON.stringify({ command: 'sendTestNotification', ssUrl: ssUrl })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert("\u2705 サーバーからの送信は成功しました。\n数秒待っても通知が出ない場合は、端末側(ブラウザやOSの通知設定)が原因です。");
+        } else {
+          alert("\u274c 送信できませんでした\n\n" + (json.message || "理由不明"));
+        }
+      } catch (e) {
+        alert("\u274c 通信エラー\n" + e.message);
+      } finally {
+        btn.innerText = original; btn.disabled = false;
+      }
+    };
+    function escapeHtml(str) { if(!str) return ""; return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
         function openManager() { const url = AppStorage.get("sh_ssurl", ""); if (!url) { openConfig(); return alert("⚙️設定から販売管理シートのURLを設定してください！"); } window.open(url, "_blank"); }
         async function searchHistory() {
           const asin = document.getElementById('historyAsin').value.trim(); const resDiv = document.getElementById('historyResult');
@@ -5557,6 +5584,8 @@ async function syncPatrolData() {
         const parts = [];
         if (d.skipped) return escapeHtml(`${prefix} スキップ:${d.skipped}`);
         if (d.error) return escapeHtml(`${prefix} エラー:${d.error}`);
+        // 🌟 { armed:true, message:"..." } のように、そのまま読める文が入っている形
+        if (typeof d.message === "string" && d.message) return escapeHtml(`${prefix} ${d.message}`);
         if (jobType === "research") {
           if (typeof d.keepaProcessed === "number") parts.push(`Keepa評価 ${d.keepaProcessed}件`);
           if (typeof d.marketCheckProcessed === "number") parts.push(`ヤフオク確認 ${d.marketCheckProcessed}件`);
@@ -5582,7 +5611,9 @@ async function syncPatrolData() {
         } else if (jobType === "sniper_daily_clear") {
           parts.push("表示をリセット");
         }
-        if (parts.length === 0) return escapeHtml(rawMessage); // 想定外の形なら元のまま表示
+        // 🌟 想定外の形でも、生のJSONは画面に出さない。
+        //    (新しいcronは日本語で書き込むので、ここに来るのは古いログだけ)
+        if (parts.length === 0) return escapeHtml(prefix || "完了");
         return escapeHtml(`${prefix} ${parts.join("、")}`);
       }
       const container = document.getElementById("job-logs-list");

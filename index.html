@@ -1197,7 +1197,6 @@
       <label style="color:#d9534f;">AmazonセラーID(必須)</label>
       <input type="text" id="cfgSellerId" placeholder="A1234567890XYZなど">
       <button onclick="enablePushNotifications(this)" style="width:100%; background:#ff9900; color:white; padding:10px; border:none; border-radius:6px; font-weight:bold; margin-top:10px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">🔔 スマホに通知を送る許可をする</button>
-      <button onclick="sendTestNotification(this)" style="width:100%; background:#4a5568; color:white; padding:10px; border:none; border-radius:6px; font-weight:bold; margin-top:8px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">🧪 テスト通知を送ってみる</button>
       <div class="modal-actions">
         <button style="background:#e2e8f0; color:#4a5568;" onclick="closeConfig()">閉じる</button>
         <button style="background:#1a365d; color:white;" onclick="saveConfig()">設定を保存</button>
@@ -2144,31 +2143,6 @@ async function syncPatrolData() {
           return `${y}/${m}/${d} ${h}:${min}`;
         }
     
-    // 🌟 通知が本当に届くかを、リサーチの完了を待たずにその場で試すためのボタン。
-    //    届かない時、原因が「サーバー側」か「端末側」かをここで切り分けられる。
-    window.sendTestNotification = async function(btn) {
-      const original = btn.innerText;
-      btn.innerText = "\u231b 送信中..."; btn.disabled = true;
-      try {
-        const ssUrl = AppStorage.get("sh_ssurl", "");
-        const targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
-        if (!targetGasUrl) { alert("\u2699\ufe0f設定のURLが未登録です"); return; }
-        const res = await fetchWithAuth(targetGasUrl, {
-          method: 'POST',
-          body: JSON.stringify({ command: 'sendTestNotification', ssUrl: ssUrl })
-        });
-        const json = await res.json();
-        if (json.success) {
-          alert("\u2705 サーバーからの送信は成功しました。\n数秒待っても通知が出ない場合は、端末側(ブラウザやOSの通知設定)が原因です。");
-        } else {
-          alert("\u274c 送信できませんでした\n\n" + (json.message || "理由不明"));
-        }
-      } catch (e) {
-        alert("\u274c 通信エラー\n" + e.message);
-      } finally {
-        btn.innerText = original; btn.disabled = false;
-      }
-    };
     function escapeHtml(str) { if(!str) return ""; return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
         function openManager() { const url = AppStorage.get("sh_ssurl", ""); if (!url) { openConfig(); return alert("⚙️設定から販売管理シートのURLを設定してください！"); } window.open(url, "_blank"); }
         async function searchHistory() {
@@ -2339,7 +2313,33 @@ async function syncPatrolData() {
             }
             
            // ★ カートのテキストを「情報なし」に変更
-            let bbValText = bbUsedPrice > 0 ? '¥' + bbUsedPrice.toLocaleString() : '情報なし';
+            // 🌟 「情報なし」だけだと、カートが無いのか・新品が取ってるのか・
+            //    Keepaのトークンが足りないのかが区別できない。理由まで出す。
+            //    ・中古がカートを取っている → その価格
+            //    ・新品がカートを取っている → その価格に「新品」と付ける(中古では取れない印)
+            //    ・そもそもカートが付いていない → カート無し
+            //    ・Keepaのトークン切れ/エラー → その旨(この時は数字が信用できない)
+            let bbValText = '';
+            let bbNote = '';
+            if (bbUsedPrice > 0) {
+              bbValText = '¥' + bbUsedPrice.toLocaleString();
+            } else {
+              const bbNewPrice = (p.stats && p.stats.buyBoxPrice > 0)
+                ? p.stats.buyBoxPrice + (p.stats.buyBoxShipping > 0 ? p.stats.buyBoxShipping : 0)
+                : 0;
+              if (bbNewPrice > 0) {
+                bbValText = '¥' + bbNewPrice.toLocaleString();
+                bbNote = '新品が取得中';
+              } else if (prodJson.error) {
+                bbValText = 'Keepaエラー';
+                bbNote = String(prodJson.error.type || prodJson.error.message || '');
+              } else if (typeof prodJson.tokensLeft === 'number' && prodJson.tokensLeft < 0) {
+                bbValText = 'トークン不足';
+                bbNote = '残' + prodJson.tokensLeft;
+              } else {
+                bbValText = 'カート無し';
+              }
+            }
             // ★ Keepaの11番（中古出品者数）を正確に取得
             const usedOffers = (p.stats.current && p.stats.current[12] !== -1) ? p.stats.current[12] : 0;
             const usedCountAvg90 = (p.stats.avg90 && p.stats.avg90[12] !== -1) ? p.stats.avg90[12] : usedOffers;
@@ -2454,6 +2454,7 @@ async function syncPatrolData() {
                 <div class="market-price-card" style="background:#f0fff4; border:1px solid #c6f6d5; padding:8px 4px; border-radius:8px; text-align:center;">
                   <div style="font-size:10px; color:#2f855a; font-weight:bold; margin-bottom:2px;">カート価格</div>
                   <div style="font-size:13px; font-weight:bold; color:#22543d;">${bbValText}</div>
+                  ${bbNote ? `<div style="font-size:9px; color:#718096; margin-top:1px;">${bbNote}</div>` : ''}
                 </div>
               </div>
               

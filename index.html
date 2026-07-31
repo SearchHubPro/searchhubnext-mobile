@@ -4143,18 +4143,39 @@ async function syncPatrolData() {
           (item.no != null && String(item.no).toLowerCase().includes(kw))
         );
       }
-      // 🌟 仕入れ日の古い順に並べる。まだ仕入れていない(日付が空の)ものは末尾に、
-      //    その中は登録番号順。サーバー側でも同じ順に並べているが、
-      //    古いmanagerのままでも画面だけは正しく並ぶようにここでも並べ替える。
+      // 🌟【仕入れリストに登録した日】の古い順に並べる。
+      //    (仕入れ日 purchaseDate ではなく、この行が出来た日 createdAt のほう)
+      //    ① createdAt(登録した瞬間)
+      //    ② それが無い行は No.(登録のたびに1ずつ増える番号なので、これも登録順)
+      //    ③ それも無ければ id
+      //    サーバー側でも同じ順に並べているが、画面だけでも必ず揃うようにここでも並べ替える。
+      //    ※ 日付の書き方が "2026/7/3" のように混ざっていても大丈夫なように、
+      //      文字のまま比べず、年月日を拾って数値にしてから比べる。
+      const _dateSortKey = (v) => {
+        if (!v) return null;
+        const s = String(v).trim();
+        if (!s || s === '-') return null;
+        if (/[T ]\d{1,2}:/.test(s)) { const t0 = Date.parse(s); if (!isNaN(t0)) return t0; }
+        const m = s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+        if (m) return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+        const t = Date.parse(s);
+        return isNaN(t) ? null : t;
+      };
       filtered = filtered.slice().sort((a, b) => {
-        const da = (a.purchaseDate && a.purchaseDate !== '-') ? String(a.purchaseDate) : '';
-        const db = (b.purchaseDate && b.purchaseDate !== '-') ? String(b.purchaseDate) : '';
-        if (da && db) { if (da !== db) return da < db ? -1 : 1; }
-        else if (da) return -1;
-        else if (db) return 1;
-        return (Number(a.no) || 0) - (Number(b.no) || 0);
+        const ta = _dateSortKey(a.createdAt);
+        const tb = _dateSortKey(b.createdAt);
+        if (ta !== null && tb !== null) { if (ta !== tb) return ta - tb; }
+        else if (ta !== null) return -1;
+        else if (tb !== null) return 1;
+        const na = Number(a.no), nb = Number(b.no);
+        const va = isFinite(na) && a.no != null ? na : Infinity;
+        const vb = isFinite(nb) && b.no != null ? nb : Infinity;
+        if (va !== vb) return va - vb;
+        return String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0;
       });
-      countEl.innerText = `リスト: ${filtered.length}件`;
+      // 🌟 どの版が読み込まれているか一目で分かるようにした目印。
+      //    「登録日順 v3」が出ていなければ、まだ古いHTMLが表示されている。
+      countEl.innerText = `リスト: ${filtered.length}件 / 登録日順 v3`;
       if (filtered.length === 0) {
         resDiv.innerHTML = '<div class="card" style="text-align:center; color:#a0aec0; padding:30px;">条件に合う商品が見つかりません。</div>';
         return;
@@ -4187,6 +4208,7 @@ async function syncPatrolData() {
         };
         const pDateStr = formatDate(item.purchaseDate);
         const cDateStr = formatDate(item.checkDate);
+        const rDateStr = formatDate(item.createdAt); // 🌟 仕入れリストに登録した日(並び順の基準)
         const sizeColor = size.includes('大型') ? '#e53e3e' : '#07A27B';
         html += `
         <div class="card" style="display:flex; gap:10px; padding:10px; margin-bottom:8px; border-left:4px solid ${rankColor};">
@@ -4203,7 +4225,7 @@ async function syncPatrolData() {
             </div>
             <div style="display:flex; justify-content:space-between; align-items:flex-end;">
               <div style="font-size:9px; color:#718096; line-height:1.4;">
-                No.${displayNo}　仕入:${pDateStr} 精査:${cDateStr}<br>
+                No.${displayNo}　登録:${rDateStr} 仕入:${pDateStr} 精査:${cDateStr}<br>
                 平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}
               </div>
               <div style="display:flex; gap:4px; flex-shrink:0;">

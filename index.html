@@ -343,7 +343,7 @@
         <div class="last-update" id="lastUpdate">待機中...</div>
       </div>
     </div>
-    <div class="header-right"><button id="patrolStartHeaderBtn" style="display:none; align-items:center; gap:4px; background:#e53e3e; color:white; border:none; border-radius:6px; padding:6px 10px; font-weight:bold; font-size:11px; white-space:nowrap; line-height:1; cursor:pointer;" onclick="startPatrolNow()"><i class="fas fa-play" style="font-size:10px;"></i>巡回開始</button></div>
+    <div class="header-right"></div>
   </div>
 </div>
   <div id="view-home" class="view active">
@@ -1792,11 +1792,6 @@
         else if(viewId === 'view-monthly-purchase') titleEl.innerText = '月別仕入情報';
         else if(viewId === 'view-monthly-sales') titleEl.innerText = '月別販売情報';
         else if(viewId === 'view-expense') titleEl.innerText = '経費一覧';
-      }
-      // 🌟 巡回開始ボタンはウォッチャー/スナイパー画面の時だけヘッダー右上に表示
-      const patrolBtn = document.getElementById('patrolStartHeaderBtn');
-      if (patrolBtn) {
-        patrolBtn.style.display = (viewId === 'view-watcher' || viewId === 'view-sniper') ? 'flex' : 'none';
       }
       
       // ーーー この下は元からあるコードそのまま ーーー
@@ -4874,27 +4869,6 @@ async function syncPatrolData() {
     // (CSVドロップ後の即時実行と、「続きを実行」ボタンの両方から呼ばれる)
     // 🌟 「続きを実行」ボタン用(新規ASIN登録なしで、残ってる分の処理だけ進める)
     // 🌟 巡回を今すぐ開始(ウォッチャー/スナイパー共通、拡張機能が/patrol/flagで検知する)
-    async function startPatrolNow() {
-      const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
-      if (!mgrUrl) { alert("先に⚙️設定でマネージャーAPI URLを入力してください！"); return; }
-      const isSniperView = currentActiveView === 'view-sniper';
-      const scope = isSniperView ? 'sniper' : 'watcher';
-      try {
-        // 対象URLが無ければ先に同期(初回はこれで検索URLが自動生成される)
-        const syncRes = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "syncPatrolTargets", scope }) });
-        const syncResult = await syncRes.json();
-        const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "startPatrolNow", scope }) });
-        const result = await res.json();
-        if (result.success) {
-          const createdNote = syncResult.created ? `\n(新たに${syncResult.created}件の検索URLを作成しました)` : '';
-          alert(`✅ 巡回を開始しました！拡張機能が数十秒以内に検知して動き出します。${createdNote}`);
-        } else {
-          alert("失敗しました: " + (result.message || "不明なエラー"));
-        }
-      } catch (e) {
-        alert("通信エラーが発生しました");
-      }
-    }
     async function continueResearchPipeline() {
       const btn = document.getElementById('btn-continue-research');
       const mgrUrl = AppStorage.get("sh_researcher_gas_url", "") || AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");

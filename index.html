@@ -5157,6 +5157,12 @@ async function syncPatrolData() {
           } catch(e) {
             throw new Error(responseText.substring(0, 50)); 
           }
+          if (json.busy) {
+            // 🌟 自動リサーチが動いている間は取り込まない(1件も登録されていない)
+            alert("⏳ " + (json.message || "いま自動リサーチが動いています。終わってから、もう一度CSVを落としてください。"));
+            dropLabel.innerHTML = originalText;
+            return;
+          }
           if (json.success) {
             const tail = json.started
               ? "\n\nこのまま自動でKeepa評価・ヤフオク確認を始めます（数分以内に動き出します）。"

@@ -1786,6 +1786,18 @@
         showNoticeError(String(e));
       }
     }
+    // 🌟 お知らせ枠の「確認」から画面へ飛ぶ。
+    //   openView は画面を切り替えるだけで、中身は読み込まない。
+    //   ダッシュボードのボタンは openView と読み込みを並べて書いてあるので、
+    //   ここでも同じように、飛び先に応じた読み込みを必ず一緒に呼ぶ。
+    //   (これが抜けていたため、飛んだ先が空のままで、更新を押すまで出なかった)
+    function gotoNoticeTarget(viewId) {
+      openView(viewId);
+      if (viewId === 'view-job-logs')       { loadJobLogs(); return; }
+      if (viewId === 'view-progress')       { loadPatrolProgress(); return; }
+      if (viewId === 'view-seller-pending') { loadSellerCandidates('pending'); return; }
+    }
+
     // 🌟 お知らせが取れなかったときに、その理由を小さく出す。
     //   黙って消すと「動いていないのか、お知らせが無いのか」が区別できない。
     function showNoticeError(msg) {
@@ -1824,7 +1836,7 @@
       alerts.forEach(a => {
         const s = a.level === 'warn' ? style.warn : style.info;
         const jump = a.goto
-          ? `<button onclick="openView('${a.goto}')" style="flex-shrink:0; background:transparent; border:1px solid ${s.bd};
+          ? `<button onclick="gotoNoticeTarget('${a.goto}')" style="flex-shrink:0; background:transparent; border:1px solid ${s.bd};
                color:${s.bd}; border-radius:5px; font-size:10px; font-weight:bold; padding:2px 8px; cursor:pointer;">確認</button>`
           : '';
         html += row(s, escapeHtml(a.message), jump);

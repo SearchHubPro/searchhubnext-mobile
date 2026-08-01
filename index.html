@@ -1775,12 +1775,28 @@
           body: JSON.stringify({ command: "getSystemStatus" })
         });
         const r = await res.json();
-        if (!r || !r.success) { area.style.display = 'none'; return; }
+        if (!r || !r.success) {
+          // 🌟 黙って消さない。取れなかったこと自体を出す。
+          //   (お知らせ機能のSQLをまだ流していない、等がこれで分かる)
+          showNoticeError(r && r.message ? r.message : '取得に失敗しました');
+          return;
+        }
         renderNotices(r.alerts || [], r.announcements || []);
       } catch (e) {
-        // 取れなくても画面の邪魔はしない
-        area.style.display = 'none';
+        showNoticeError(String(e));
       }
+    }
+    // 🌟 お知らせが取れなかったときに、その理由を小さく出す。
+    //   黙って消すと「動いていないのか、お知らせが無いのか」が区別できない。
+    function showNoticeError(msg) {
+      const area = document.getElementById('noticeArea');
+      if (!area) return;
+      area.innerHTML = `
+        <div style="background:#fffaf0; border-left:4px solid #dd6b20; color:#7b341e;
+                    padding:6px 10px; border-radius:6px; font-size:11px; line-height:1.5;">
+          お知らせを取得できませんでした（${escapeHtml(msg).slice(0, 120)}）
+        </div>`;
+      area.style.display = 'block';
     }
     function renderNotices(alerts, announcements) {
       const area = document.getElementById('noticeArea');
@@ -2089,6 +2105,7 @@
       const urlSniper = AppStorage.get("sh_sniper_url", ""); const url10 = AppStorage.get("sh_tensite_url", "");
       
       if(urlSniper || url10) { fetchDashboardData(); }
+      // 🌟 お知らせは起動時にも必ず取る(下の定期取得は5分後が1回目のため)
       loadOwnInventoryBackground(); // 👈 💡 これを追加！起動時に裏で在庫を取得！
       loadNotices(); // 🌟 お知らせ枠(システムの判定＋運営からのお知らせ)
       applyHomeTabPanels('turnover'); // 🌟 起動時は「概要」タブなので、資金・在庫パネルは隠しておく

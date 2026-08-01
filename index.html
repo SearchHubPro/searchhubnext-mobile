@@ -2115,7 +2115,7 @@
       //   隠れている間は通信しない(通信量を無駄に使わないため)。
       setInterval(() => {
         if (document.visibilityState === 'visible') loadNotices();
-      }, 5 * 60 * 1000);
+      }, 2 * 60 * 1000);
       checkYahooStatus(); // ロード時にヤフオクの状態もチェック！
       setTimeout(() => { hideLoader(); }, 8000);
       if(!urlSniper && !url10) {
@@ -2138,6 +2138,7 @@
     });
 async function syncPatrolData() {
           document.getElementById("lastUpdate").innerText = "データ同期中...";
+          loadNotices(); // 🌟 同期を走らせるときは、お知らせも必ず取り直す
           const urlSniper = AppStorage.get("sh_sniper_url", ""); const url10 = AppStorage.get("sh_tensite_url", "");
           if(!urlSniper && !url10) return;
           try {

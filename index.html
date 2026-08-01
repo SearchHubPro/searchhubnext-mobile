@@ -5092,7 +5092,10 @@ async function syncPatrolData() {
       if (!mgrUrl) { alert("先に⚙️設定でマネージャーAPI URLを入力してください！"); return; }
       btn.disabled = true;
       try {
-        const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "startResearchNow" }) });
+        // 🌟 このボタンは「残っている分の処理を進める」もの。
+        //   以前は startResearchNow を呼んでいたため、押すと
+        //   セラー抽出(10URL)が新規に始まってしまっていた。
+        const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "startQueueResearchNow" }) });
         const result = await res.json();
         alert(result.success ? "✅ " + result.message : "❌ " + (result.message || "失敗しました"));
       } catch (e) {
@@ -5155,7 +5158,12 @@ async function syncPatrolData() {
             throw new Error(responseText.substring(0, 50)); 
           }
           if (json.success) {
-            alert(`✅ ${json.added || asins.length}件のASINをリサーチリストへ登録しました！\n(${json.skipped || 0}件は既に登録済みのためスキップ)\n\nこのあとは自動リサーチの予約実行が拾って、少しずつKeepa評価・ヤフオク確認を進めます。`);
+            const tail = json.started
+              ? "\n\nこのまま自動でKeepa評価・ヤフオク確認を始めます（数分以内に動き出します）。"
+              : (json.busy
+                  ? "\n\n今ほかの処理が動いているので、それが終わり次第、順番に進みます。"
+                  : "\n\nこのあとは自動リサーチの予約実行が拾って、少しずつ進めます。");
+            alert(`✅ ${json.added || asins.length}件のASINをリサーチリストへ登録しました！\n(${json.skipped || 0}件は既に登録済みのためスキップ)` + tail);
             if (typeof loadResearcherData === 'function') loadResearcherData();
           } else {
             alert(`❌ 自動リサーチ開始エラー:\n${json.message}`);

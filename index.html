@@ -2093,6 +2093,12 @@
       loadNotices(); // 🌟 お知らせ枠(システムの判定＋運営からのお知らせ)
       applyHomeTabPanels('turnover'); // 🌟 起動時は「概要」タブなので、資金・在庫パネルは隠しておく
       toggleHomeFold(AppStorage.get('sh_home_folded', '1') === '1'); // 🌟 既定は閉じた状態
+      // 🌟 画面を開いている間だけ、5分おきにお知らせを取り直す。
+      //   これが無いと、届いても更新を押すまで出てこない。
+      //   隠れている間は通信しない(通信量を無駄に使わないため)。
+      setInterval(() => {
+        if (document.visibilityState === 'visible') loadNotices();
+      }, 5 * 60 * 1000);
       checkYahooStatus(); // ロード時にヤフオクの状態もチェック！
       setTimeout(() => { hideLoader(); }, 8000);
       if(!urlSniper && !url10) {
@@ -2109,6 +2115,7 @@
           syncPatrolData();
           fetchDashboardData(); 
           checkYahooStatus(); // 戻ってきたときにもヤフオク状態チェック！
+          loadNotices();      // 🌟 戻ってきたときにお知らせも取り直す
         }
       }
     });

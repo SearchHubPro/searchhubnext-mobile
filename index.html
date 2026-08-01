@@ -1855,6 +1855,11 @@
         btn.innerHTML = homeFolded ? '<i class="fas fa-chevron-down"></i>' : '<i class="fas fa-chevron-up"></i>';
         btn.title = homeFolded ? '開く' : '折りたたむ';
       }
+      // 🌟 カード自体に min-height:290px が効いているので、
+      //   中身を消しただけでは白い余白がそのまま残る。閉じている間は外す。
+      const card = document.querySelector('#view-home .graph-card');
+      if (card) card.style.minHeight = homeFolded ? '0px' : '';
+
       if (homeFolded) {
         // 🌟 閉じたときはタブの行だけを残す。中身は全部たたむ。
         ['homeGraphContent', 'homeMonthTabsArea'].forEach(id => {

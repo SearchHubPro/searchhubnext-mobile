@@ -309,8 +309,10 @@
          元は .pc- という名前のとおりPC専用で、幅768px未満では display:none にしていた。
          スマホでは横に2枚並べる余裕が無いので、縦に積む。
          要らないと判断したら、下の display:flex を display:none に戻すだけで元通り。 */
+    /* 🌟 表示・非表示は「資金」「在庫」タブの切り替えでJS側が決める。
+         ここでは並び方だけを決めておく。 */
     .pc-dashboard-top-wrapper {
-      display: flex;
+      display: none;
       flex-direction: column;
       gap: 12px;
       margin: 0 12px 16px 12px;
@@ -370,10 +372,16 @@
            ・上段: システムの判定(自動)。閉じられない。直れば自動で消える
            ・下段: 運営からのお知らせ。×で閉じられる -->
       <div id="noticeArea" style="display:none; margin-bottom:12px;"></div>
+      <!-- 🌟 タブを5つに増やした。
+           カード支払予測と在庫は「今この瞬間」の情報で、
+           グラフ(時間の流れ)とは種類が違うため、縦に積まずタブに分けている。
+           スマホの幅に5つ収めるため、見出しは2文字に統一している。 -->
       <div class="home-top-tabs">
-        <button class="home-tab-btn active" onclick="switchHomeTab('turnover', this)">ダッシュボード</button>
+        <button class="home-tab-btn active" onclick="switchHomeTab('turnover', this)">概要</button>
         <button class="home-tab-btn" onclick="switchHomeTab('purchase', this)">仕入</button>
         <button class="home-tab-btn" onclick="switchHomeTab('sales', this)">販売</button>
+        <button class="home-tab-btn" onclick="switchHomeTab('fund', this)">資金</button>
+        <button class="home-tab-btn" onclick="switchHomeTab('stock', this)">在庫</button>
       </div>
       
       <div id="homeGraphContent">
@@ -1813,7 +1821,24 @@
       document.querySelectorAll('.home-tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentHomeMode = mode;
-      updateHomeView();
+      applyHomeTabPanels(mode);
+      if (mode !== 'fund' && mode !== 'stock') updateHomeView();
+    }
+    // 🌟 タブに応じて「グラフ側」と「パネル側」の出し分けをする。
+    //   資金 = カード支払予測 / 在庫 = 現在庫と月別在庫(期首・期末)
+    //   どのタブでも出しっぱなしにすると画面が縦に伸びるので、必ずどちらか片方だけ。
+    function applyHomeTabPanels(mode) {
+      const graph  = document.getElementById('homeGraphContent');
+      const months = document.getElementById('homeMonthTabsArea');
+      const wrap   = document.querySelector('.pc-dashboard-top-wrapper');
+      const fund   = document.querySelector('.pc-forecast-panel');
+      const stock  = document.querySelector('.pc-only-inventory-panel');
+      const isPanel = (mode === 'fund' || mode === 'stock');
+      if (graph)  graph.style.display  = isPanel ? 'none' : '';
+      if (months && isPanel) months.style.display = 'none';
+      if (wrap)   wrap.style.display   = isPanel ? 'flex' : 'none';
+      if (fund)   fund.style.display   = (mode === 'fund')  ? '' : 'none';
+      if (stock)  stock.style.display  = (mode === 'stock') ? 'flex' : 'none';
     }
     function switchHomeMonth(month, btn) {
       document.querySelectorAll('.home-month-btn').forEach(b => b.classList.remove('active'));
@@ -2014,6 +2039,7 @@
       if(urlSniper || url10) { fetchDashboardData(); }
       loadOwnInventoryBackground(); // 👈 💡 これを追加！起動時に裏で在庫を取得！
       loadNotices(); // 🌟 お知らせ枠(システムの判定＋運営からのお知らせ)
+      applyHomeTabPanels('turnover'); // 🌟 起動時は「概要」タブなので、資金・在庫パネルは隠しておく
       checkYahooStatus(); // ロード時にヤフオクの状態もチェック！
       setTimeout(() => { hideLoader(); }, 8000);
       if(!urlSniper && !url10) {

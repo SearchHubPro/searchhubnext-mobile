@@ -348,6 +348,10 @@
 </div>
   <div id="view-home" class="view active">
     <div class="graph-card">
+      <!-- 🌟 お知らせ枠。ダッシュボード・仕入・販売のどのタブでも常に一番上に出る。
+           ・上段: システムの判定(自動)。閉じられない。直れば自動で消える
+           ・下段: 運営からのお知らせ。×で閉じられる -->
+      <div id="noticeArea" style="display:none; margin-bottom:12px;"></div>
       <div class="home-top-tabs">
         <button class="home-tab-btn active" onclick="switchHomeTab('turnover', this)">ダッシュボード</button>
         <button class="home-tab-btn" onclick="switchHomeTab('purchase', this)">仕入</button>
@@ -1709,6 +1713,84 @@
         });
       }
     }
+
+    // =========================================================
+    // 🌟【お知らせ枠】ホーム画面の一番上に出す1本の帯。
+    //   ・上段: システムの判定(自動)。閉じられない。直れば自動で消える
+    //   ・下段: 運営からのお知らせ。×で閉じられる。閉じたら二度と出ない
+    //   1回の通信で両方まとめて取ってくる。
+    // =========================================================
+    async function loadNotices() {
+      const area = document.getElementById('noticeArea');
+      if (!area) return;
+      const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
+      if (!mgrUrl) return;
+      try {
+        const res = await fetchWithAuth(mgrUrl, {
+          method: "POST",
+          body: JSON.stringify({ command: "getSystemStatus" })
+        });
+        const r = await res.json();
+        if (!r || !r.success) { area.style.display = 'none'; return; }
+        renderNotices(r.alerts || [], r.announcements || []);
+      } catch (e) {
+        // 取れなくても画面の邪魔はしない
+        area.style.display = 'none';
+      }
+    }
+    function renderNotices(alerts, announcements) {
+      const area = document.getElementById('noticeArea');
+      if (!area) return;
+      if (alerts.length === 0 && announcements.length === 0) {
+        area.style.display = 'none';
+        area.innerHTML = '';
+        return;
+      }
+      // 色分け。警告は黄、案内は青、運営からのお知らせは灰
+      const style = {
+        warn: { bg: '#fffaf0', bd: '#dd6b20', fg: '#7b341e', icon: '⚠️' },
+        info: { bg: '#ebf8ff', bd: '#3182ce', fg: '#2a4365', icon: 'ℹ️' },
+        note: { bg: '#f7fafc', bd: '#a0aec0', fg: '#2d3748', icon: '📢' }
+      };
+      const row = (s, text, right) => `
+        <div style="display:flex; align-items:flex-start; gap:8px; background:${s.bg}; border-left:4px solid ${s.bd};
+                    color:${s.fg}; padding:8px 10px; border-radius:6px; margin-bottom:6px; font-size:12px; line-height:1.6;">
+          <span style="flex-shrink:0;">${s.icon}</span>
+          <div style="flex:1; min-width:0;">${text}</div>
+          ${right || ''}
+        </div>`;
+      let html = '';
+      // ① システムの判定(必ず上)
+      alerts.forEach(a => {
+        const s = a.level === 'warn' ? style.warn : style.info;
+        const jump = a.goto
+          ? `<button onclick="openView('${a.goto}')" style="flex-shrink:0; background:transparent; border:1px solid ${s.bd};
+               color:${s.bd}; border-radius:5px; font-size:10px; font-weight:bold; padding:2px 8px; cursor:pointer;">確認</button>`
+          : '';
+        html += row(s, escapeHtml(a.message), jump);
+      });
+      // ② 運営からのお知らせ(下)
+      announcements.forEach(n => {
+        const s = n.level === 'warn' ? style.warn : style.note;
+        const close = `<button onclick="dismissNotice('${n.id}')" title="閉じる"
+             style="flex-shrink:0; background:transparent; border:none; color:${s.fg}; opacity:.5;
+                    font-size:14px; line-height:1; cursor:pointer; padding:0 2px;">&times;</button>`;
+        html += row(s, escapeHtml(n.message), close);
+      });
+      area.innerHTML = html;
+      area.style.display = 'block';
+    }
+    async function dismissNotice(id) {
+      const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
+      if (!mgrUrl) return;
+      try {
+        await fetchWithAuth(mgrUrl, {
+          method: "POST",
+          body: JSON.stringify({ command: "dismissAnnouncement", id: id })
+        });
+      } catch (e) { /* 失敗しても次回また出るだけ */ }
+      loadNotices();
+    }
     function switchHomeTab(mode, btn) {
       document.querySelectorAll('.home-tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -1913,6 +1995,7 @@
       
       if(urlSniper || url10) { fetchDashboardData(); }
       loadOwnInventoryBackground(); // 👈 💡 これを追加！起動時に裏で在庫を取得！
+      loadNotices(); // 🌟 お知らせ枠(システムの判定＋運営からのお知らせ)
       checkYahooStatus(); // ロード時にヤフオクの状態もチェック！
       setTimeout(() => { hideLoader(); }, 8000);
       if(!urlSniper && !url10) {

@@ -382,15 +382,24 @@
         <button class="home-tab-btn" onclick="switchHomeTab('sales', this)">販売</button>
         <button class="home-tab-btn" onclick="switchHomeTab('fund', this)">資金</button>
         <button class="home-tab-btn" onclick="switchHomeTab('stock', this)">在庫</button>
+        <!-- 🌟 折りたたみボタン。タブの中身だけを閉じる(タブ自体は残す)。
+             閉じた状態は次に開いたときも覚えている。 -->
+        <button id="homeFoldBtn" onclick="toggleHomeFold()" title="折りたたむ"
+                style="flex:0 0 auto; padding:8px 10px; border:none; background:transparent;
+                       color:#565959; cursor:pointer; font-size:13px;">
+          <i class="fas fa-chevron-up"></i>
+        </button>
       </div>
+      <!-- 🌟 ここから下がタブの中身。折りたたみはこの箱ごと閉じる -->
+      <div id="homeBody">
       
       <div id="homeGraphContent">
         <div style="text-align:center; padding:30px; color:#a0aec0; font-size:12px;">⌛ データを同期中...</div>
       </div>
       
       <div id="homeMonthTabsArea" style="display:none;"></div>
-    </div>
-    
+      <!-- 🌟 資金・在庫パネルはタブの中身なので、カードの内側に置く。
+           外に置くと、タブを押したときに別の箱が下に生えたように見えてしまう。 -->
     <div class="pc-dashboard-top-wrapper">
       
       <div class="pc-forecast-panel">
@@ -452,6 +461,9 @@
         </div>
       </div>
     </div>
+      </div><!-- /#homeBody -->
+    </div>
+    
     <script>
       // 💡 在庫パネルのタブ切り替えアニメーション
       function switchInvTab(tab) {
@@ -1824,6 +1836,21 @@
       applyHomeTabPanels(mode);
       if (mode !== 'fund' && mode !== 'stock') updateHomeView();
     }
+    // 🌟 タブの中身を折りたたむ/開く。閉じた状態は端末に覚えさせる。
+    //   ホーム画面の下にあるボタン類まで一気にスクロールしたいときのため。
+    function toggleHomeFold(force) {
+      const body = document.getElementById('homeBody');
+      const btn  = document.getElementById('homeFoldBtn');
+      if (!body) return;
+      const willFold = (typeof force === 'boolean') ? force : (body.style.display !== 'none');
+      body.style.display = willFold ? 'none' : '';
+      if (btn) {
+        btn.innerHTML = willFold ? '<i class="fas fa-chevron-down"></i>' : '<i class="fas fa-chevron-up"></i>';
+        btn.title = willFold ? '開く' : '折りたたむ';
+      }
+      AppStorage.set('sh_home_folded', willFold ? '1' : '0');
+    }
+
     // 🌟 タブに応じて「グラフ側」と「パネル側」の出し分けをする。
     //   資金 = カード支払予測 / 在庫 = 現在庫と月別在庫(期首・期末)
     //   どのタブでも出しっぱなしにすると画面が縦に伸びるので、必ずどちらか片方だけ。
@@ -2040,6 +2067,7 @@
       loadOwnInventoryBackground(); // 👈 💡 これを追加！起動時に裏で在庫を取得！
       loadNotices(); // 🌟 お知らせ枠(システムの判定＋運営からのお知らせ)
       applyHomeTabPanels('turnover'); // 🌟 起動時は「概要」タブなので、資金・在庫パネルは隠しておく
+      if (AppStorage.get('sh_home_folded', '0') === '1') toggleHomeFold(true); // 🌟 前回閉じていたら閉じたまま
       checkYahooStatus(); // ロード時にヤフオクの状態もチェック！
       setTimeout(() => { hideLoader(); }, 8000);
       if(!urlSniper && !url10) {

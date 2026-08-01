@@ -1634,6 +1634,15 @@
       }
     }
     function updateHomeView() {
+      // 🌟【重要】この関数は fetchDashboardData など、あちこちから呼ばれる。
+      //   ここで止めておかないと、裏で走ったデータ更新のたびに
+      //   「閉じたはずの中身」や「グラフ用の月選択」が勝手に出てくる。
+      //   折りたたみ中と、資金・在庫タブのときは、描画も表示切替も一切しない。
+      if (homeFolded) return;
+      if (currentHomeMode === 'fund' || currentHomeMode === 'stock') {
+        applyHomeTabPanels(currentHomeMode);
+        return;
+      }
       const contentArea = document.getElementById('homeGraphContent');
       const monthArea = document.getElementById('homeMonthTabsArea');
       
@@ -1838,7 +1847,7 @@
     // 🌟 タブの中身を折りたたむ/開く。
     //   囲いの箱は使わず、中身を1つずつ閉じる(入れ子の位置ズレに影響されないため)。
     //   閉じた状態は端末に覚えさせる。既定は「閉じた状態」。
-    let homeFolded = false;
+    var homeFolded = false; // 🌟 varにしてあるのは、宣言より前に呼ばれても落ちないようにするため
     function toggleHomeFold(force) {
       homeFolded = (typeof force === 'boolean') ? force : !homeFolded;
       const btn = document.getElementById('homeFoldBtn');
@@ -1847,6 +1856,7 @@
         btn.title = homeFolded ? '開く' : '折りたたむ';
       }
       if (homeFolded) {
+        // 🌟 閉じたときはタブの行だけを残す。中身は全部たたむ。
         ['homeGraphContent', 'homeMonthTabsArea'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.style.display = 'none';

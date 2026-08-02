@@ -541,6 +541,7 @@
         <button id="progress-tab-watcher" onclick="switchProgressScope('watcher')" style="flex:1; padding:8px; border-radius:6px; border:none; font-weight:bold; font-size:12px; cursor:pointer; background:#07A27B; color:white;">ウォッチャー</button>
         <button id="progress-tab-sniper" onclick="switchProgressScope('sniper')" style="flex:1; padding:8px; border-radius:6px; border:none; font-weight:bold; font-size:12px; cursor:pointer; background:#edf2f7; color:#4a5568;">スナイパー</button>
         <button onclick="loadPatrolProgress()" style="padding:8px 12px; border-radius:6px; border:none; font-weight:bold; font-size:11px; cursor:pointer; background:#edf2f7; color:#4a5568;"><i class="fas fa-sync-alt"></i></button>
+        <button id="progress-sync-btn" onclick="syncPatrolTargetsNow()" style="padding:8px 12px; border-radius:6px; border:none; font-weight:bold; font-size:11px; cursor:pointer; background:#3182ce; color:#fff; white-space:nowrap;"><i class="fas fa-link"></i> URL同期</button>
       </div>
       <div style="font-size:12px; font-weight:bold; color:#4a5568; margin-bottom:6px;">📊 サイト別進捗(直近6時間の巡回サイクル)</div>
       <div id="progress-summary" style="margin-bottom:20px;"></div>
@@ -5710,6 +5711,33 @@ async function syncPatrolData() {
       document.getElementById('progress-tab-sniper').style.color = scope === 'sniper' ? 'white' : '#4a5568';
       loadPatrolProgress();
     }
+    // 🌟 巡回用の検索URLを、今の仕入れリストに合わせて作り直す。
+    //   毎日2時に自動で走るが、商品を足した直後などすぐ反映したい時に押す。
+    //   今開いているタブ(ウォッチャー/スナイパー)の分だけを同期する。
+    async function syncPatrolTargetsNow() {
+      const btn = document.getElementById('progress-sync-btn');
+      const label = currentProgressScope === 'sniper' ? 'スナイパー' : 'ウォッチャー';
+      const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
+      if (!mgrUrl) { alert("⚙️設定でマネージャーAPI URLを入力してください"); return; }
+      if (!confirm(label + "の巡回URLを、今の仕入れリストに合わせて作り直します。よろしいですか？")) return;
+      const original = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同期中'; }
+      try {
+        const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "syncPatrolTargets", scope: currentProgressScope }) });
+        const result = await res.json();
+        if (result.success) {
+          showToast("✅ " + label + "のURL同期が終わりました(追加 " + (result.created || 0) + "件 / 削除 " + (result.deactivated || 0) + "件)");
+          loadPatrolProgress();
+        } else {
+          showToast("⚠️ 同期に失敗しました " + (result.message || ""));
+        }
+      } catch (e) {
+        showToast("⚠️ 通信エラーが発生しました");
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = original; }
+      }
+    }
+
     async function loadPatrolProgress() {
       const summaryEl = document.getElementById('progress-summary');
       const activityEl = document.getElementById('progress-activity');

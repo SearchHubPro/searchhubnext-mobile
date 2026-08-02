@@ -5207,9 +5207,15 @@ async function syncPatrolData() {
       { key: "watcher_patrol-2",  task_type: "watcher_patrol",         slot_no: 2, label: "🚀 自動巡回（2回目）",                             defaultHour: 17, defaultEnabled: false },
       { key: "manager_price_revision-1", task_type: "manager_price_revision", slot_no: 1, label: "💰 価格改定を自動実行",                    defaultHour: 0,  defaultEnabled: false },
     ];
+    // 🌟【修正】マネージャーAPIのURLはコードに埋め込んであるが、
+    //   それが AppStorage に書き込まれるのは⚙️設定で「保存」を押した時だけだった。
+    //   そのため、保存を押す前に通知ボタンを押すと、ここが空文字を返し、
+    //   通知トークンを保存しないまま「✅ 通知設定完了」と出てしまっていた。
+    //   保存の有無に関係なく必ずURLを返すようにして、押す順番を問わないようにする。
+    const FIXED_SETTINGS_API_URL = "https://ihsjwsdwjuapfdhtocmq.supabase.co/functions/v1/settings";
     function getSettingsApiUrl() {
       const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
-      if (!mgrUrl) return "";
+      if (!mgrUrl) return FIXED_SETTINGS_API_URL;
       return mgrUrl.replace(/\/manager\/?$/, "/settings");
     }
     function openAllSchedulesModal() {

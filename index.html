@@ -4820,9 +4820,23 @@ async function syncPatrolData() {
       }
     }
     async function submitExpense() {
-      const month = document.getElementById('expMonth').value.trim();
+      let month = document.getElementById('expMonth').value.trim();
       const amount = document.getElementById('expAmount').value.trim();
       if (!month || !amount) return alert("発生月と金額は必ず入力してください！");
+      // 🌟 発生月は必ず「2026/08」の形に揃える。
+      //   「2026/8」「2026-8」「202608」のどれで打っても同じ月として扱えるようにする。
+      //   揃えないと、経費一覧の月の絞り込みで別々の月として並んでしまう。
+      {
+        const mm = month.replace(/[^0-9]/g, "");
+        if (mm.length === 6) {
+          month = mm.slice(0, 4) + "/" + mm.slice(4, 6);
+        } else if (mm.length === 5) {
+          month = mm.slice(0, 4) + "/" + mm.slice(4, 5).padStart(2, "0");
+        } else {
+          return alert("発生月は 2026/08 のように入力してください");
+        }
+        document.getElementById('expMonth').value = month;
+      }
       const selectVal = document.getElementById('expTypeSelect').value;
       let type = selectVal;
       if (selectVal === "その他") {

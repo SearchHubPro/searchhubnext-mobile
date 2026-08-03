@@ -3373,6 +3373,9 @@ async function syncPatrolData() {
               alert("✅ 仕入れsheetへの移動が完了しました！\n（リサーチsheetからも削除されました）");
               // 💡 登録完了後、GASから最新のリストを再取得して画面を更新する！（行ズレ完全防止！）
               await loadResearcherData();
+              // 🌟 仕入れリストは一度読んだら画面側に溜め込む作りなので、
+              //   ここで空にしておかないと、次に開いたときに登録前の古い一覧が出る。
+              try { globalPurchaseListData = []; } catch (e) {}
             } else {
               alert("❌ 登録失敗: " + json.message);
             }
@@ -4465,8 +4468,6 @@ async function syncPatrolData() {
             <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:4px;">
               <span style="font-family:monospace; background:#fffaf0; color:#dd6b20; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:bold;">${asin}</span>
               <span style="font-size:9px; color:#4a5568; font-weight:bold;">${model}</span>
-              <span style="background:${rankColor}; color:white; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:bold;">${rankRaw}</span>
-              <span style="background:${sizeColor}; color:white; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:bold;">${size}</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:flex-end;">
               <div style="font-size:9px; color:#718096; line-height:1.4;">
@@ -4474,9 +4475,17 @@ async function syncPatrolData() {
                 平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}<br>
                 出品者: ${offersLabel(item.usedOffers)}
               </div>
-              <div style="display:flex; gap:4px; flex-shrink:0;">
-                <a href="https://www.amazon.co.jp/dp/${asin}" target="_blank" style="background:#f6ad55; color:white; padding:4px 6px; border-radius:4px; text-decoration:none; font-size:10px;"><i class="fab fa-amazon"></i></a>
-                <button onclick="openPurchaseEditModal('${id}')" style="background:#4a5568; color:white; border:none; padding:4px 6px; border-radius:4px; font-size:10px;"><i class="fas fa-edit"></i></button>
+              <!-- 🌟 ランクとサイズは、商品名や型番の長さで位置がずれないよう、
+                   ボタンの真上に固定する(ランク=Amazonの上 / サイズ=編集の上)。 -->
+              <div style="display:flex; gap:4px; flex-shrink:0; align-items:flex-end;">
+                <div style="display:flex; flex-direction:column; align-items:stretch; gap:3px;">
+                  <span style="background:${rankColor}; color:white; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:bold; text-align:center;">${rankRaw}</span>
+                  <a href="https://www.amazon.co.jp/dp/${asin}" target="_blank" style="background:#f6ad55; color:white; padding:4px 6px; border-radius:4px; text-decoration:none; font-size:10px; text-align:center;"><i class="fab fa-amazon"></i></a>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:stretch; gap:3px;">
+                  <span style="background:${sizeColor}; color:white; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:bold; text-align:center;">${size}</span>
+                  <button onclick="openPurchaseEditModal('${id}')" style="background:#4a5568; color:white; border:none; padding:4px 6px; border-radius:4px; font-size:10px;"><i class="fas fa-edit"></i></button>
+                </div>
               </div>
             </div>
           </div>

@@ -3246,6 +3246,9 @@ async function syncPatrolData() {
                     <span>最安売価: ¥${Number(item.minUsed).toLocaleString()}</span>
                     <span style="color:#07A27B;">最安仕入: ¥${Number(item.minBuyPrice).toLocaleString()}</span>
                   </div>
+                  <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold; color:#4a5568; margin-top:4px;">
+                    <span>出品者(中古): ${offersLabel(item.usedOffers)}</span>
+                  </div>
                 </div>
                 
                 <div style="display:flex; gap:6px; justify-content:flex-end;">
@@ -4468,7 +4471,8 @@ async function syncPatrolData() {
             <div style="display:flex; justify-content:space-between; align-items:flex-end;">
               <div style="font-size:9px; color:#718096; line-height:1.4;">
                 No.${displayNo}　登録:${rDateStr} 仕入:${pDateStr} 精査:${cDateStr}<br>
-                平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}
+                平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}<br>
+                出品者: ${offersLabel(item.usedOffers)}
               </div>
               <div style="display:flex; gap:4px; flex-shrink:0;">
                 <a href="https://www.amazon.co.jp/dp/${asin}" target="_blank" style="background:#f6ad55; color:white; padding:4px 6px; border-radius:4px; text-decoration:none; font-size:10px;"><i class="fab fa-amazon"></i></a>
@@ -5216,6 +5220,16 @@ async function syncPatrolData() {
     const FIXED_SETTINGS_API_URL = "https://ihsjwsdwjuapfdhtocmq.supabase.co/functions/v1/settings";
     // 🌟 Keepaへの問い合わせは必ずサーバー(manager)を通す。
     //   直接 api.keepa.com を叩くと、停止したライセンスでも動いてしまうため。
+    // 🌟 中古の出品者数(ライバルの数)を、色付きの短い文字にする。
+    //   少ないほど有利なので、1〜2人は緑、3〜5人は普通、8人以上は赤。
+    //   まだ取れていない(古い行)は「-」。
+    function offersLabel(n) {
+      if (n === null || n === undefined || n === "") return '<span style="color:#a0aec0;">-</span>';
+      const v = Number(n);
+      if (!isFinite(v)) return '<span style="color:#a0aec0;">-</span>';
+      const color = v <= 2 ? "#2f855a" : (v >= 8 ? "#c53030" : "#4a5568");
+      return '<span style="color:' + color + '; font-weight:900;">' + v + '人</span>';
+    }
     function getManagerApiUrl() {
       return AppStorage.get("sh_sniper_url", "")
           || AppStorage.get("sh_tensite_url", "")

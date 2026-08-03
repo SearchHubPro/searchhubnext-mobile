@@ -1296,6 +1296,9 @@
         <div><label style="font-size:11px; font-weight:bold;">商品ID</label><input type="text" id="edit_itemId" style="width:100%; padding:8px; box-sizing:border-box;"></div>
       </div>
       
+      <label style="font-size:11px; font-weight:bold; display:block; margin-top:8px;">購入URL</label>
+      <input type="text" id="edit_purchaseUrl" placeholder="https://..." style="width:100%; padding:8px; box-sizing:border-box;">
+      
       <label style="font-size:11px; font-weight:bold; display:block; margin-top:8px;">商品説明（メモ）</label>
       <textarea id="edit_description" rows="3" style="width:100%; padding:8px; box-sizing:border-box; border:1px solid #ccc; border-radius:6px;"></textarea>
       
@@ -3978,6 +3981,7 @@ async function syncPatrolData() {
       document.getElementById('edit_sku').value = item.sku || '';
       document.getElementById('edit_condition').value = item.condition || '';
       document.getElementById('edit_itemId').value = item.itemId || '';
+      document.getElementById('edit_purchaseUrl').value = item.url || '';
       document.getElementById('edit_description').value = item.description || '';
       document.getElementById('edit_buyPrice').value = item.buyPrice || 0;
       document.getElementById('edit_expense').value = item.expense || 0;
@@ -4087,6 +4091,7 @@ async function syncPatrolData() {
         sku: document.getElementById('edit_sku').value,
         condition: document.getElementById('edit_condition').value,
         itemId: document.getElementById('edit_itemId').value,
+        url: document.getElementById('edit_purchaseUrl').value,
         description: document.getElementById('edit_description').value,
         buyPrice: Number(document.getElementById('edit_buyPrice').value),
         expense: Number(document.getElementById('edit_expense').value),

@@ -832,6 +832,7 @@
         <button onclick="loadBulkRegisterData()" style="background:#1a365d; color:white; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
           <i class="fas fa-sync-alt"></i> データを取得
         </button>
+        <span id="bulkCount" style="font-size:12px; font-weight:bold; color:#4a5568; align-self:center;">-</span>
         <button onclick="openHazmatGuide()" style="background:#e53e3e; color:white; border:none; padding:6px 10px; border-radius:8px; font-weight:bold; font-size:11px; display:flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer;">
           <i class="fas fa-exclamation-triangle"></i> 危険物ガイド
         </button>
@@ -4183,6 +4184,7 @@ async function syncPatrolData() {
         } else {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#a0aec0;">現在、一括登録対象（納品待ち）の商品はありません。</td></tr>';
           globalBulkData = [];
+          updateBulkCount();
         }
       } catch (err) {
         loading.style.display = 'none';
@@ -4214,6 +4216,7 @@ async function syncPatrolData() {
         `;
       });
       tbody.innerHTML = html;
+      updateBulkCount();
     }
     window.showToast = function(msg) {
       let toast = document.getElementById('sh-toast');
@@ -4256,8 +4259,17 @@ async function syncPatrolData() {
       const row = document.getElementById('bulk_row_' + sku);
       if (row) {
         row.style.opacity = '0';
-        setTimeout(() => { row.style.display = 'none'; }, 300);
+        setTimeout(() => { row.style.display = 'none'; updateBulkCount(); }, 300);
       }
+    }
+    // 🌟 今この画面に出ている件数(除外した行は数えない)
+    function updateBulkCount() {
+      const el = document.getElementById('bulkCount');
+      if (!el) return;
+      const rows = document.querySelectorAll('#bulkRegisterBody tr[id^="bulk_row_"]');
+      let n = 0;
+      rows.forEach(r => { if (r.style.display !== 'none') n++; });
+      el.innerText = n + '件';
     }
     function openBulkDescModal(sku) {
       const item = globalBulkData.find(i => i.sku === sku);

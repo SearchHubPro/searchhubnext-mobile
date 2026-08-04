@@ -2000,24 +2000,25 @@
         else if(viewId === 'view-amazon') titleEl.innerText = 'Amazon リサーチ';
         else if(viewId === 'view-price') titleEl.innerText = '価格改定';
         else if(viewId === 'view-history') titleEl.innerText = '販売履歴リサーチ';
-        else if(viewId === 'view-researcher') titleEl.innerText = 'Researcher リサーチリスト'; 
+        else if(viewId === 'view-researcher') titleEl.innerText = 'リサーチリスト';
         else if(viewId === 'view-manager-menu') titleEl.innerText = 'Manager メニュー';
         else if(viewId === 'view-researcher-menu') titleEl.innerText = 'Researcher メニュー';
-        else if(viewId === 'view-category-search') titleEl.innerText = '条件検索URL';
+        else if(viewId === 'view-category-search') titleEl.innerText = 'セラーグループ進捗';
         else if(viewId === 'view-ledger') titleEl.innerText = '販売管理';
         else if(viewId === 'view-bulk-register') titleEl.innerText = '一括商品登録';
-        else if(viewId === 'view-info') titleEl.innerText = '各種情報';
+        else if(viewId === 'view-info') titleEl.innerText = '情報設定';
         else if(viewId === 'view-progress') titleEl.innerText = '巡回進捗パネル';
         else if(viewId === 'view-purchase-list') titleEl.innerText = '仕入れリスト';
         else if(viewId === 'view-monthly-purchase') titleEl.innerText = '月別仕入情報';
         else if(viewId === 'view-monthly-sales') titleEl.innerText = '月別販売情報';
         else if(viewId === 'view-expense') titleEl.innerText = '経費一覧';
+        else if(viewId === 'view-job-logs') titleEl.innerText = '実行ログ';
         // 🌟【追加】指定が抜けていた画面。
         //   ここに無い画面へ移ると、上の帯が【前の画面の名前のまま】残っていた。
         else if(viewId === 'view-seller-pending') titleEl.innerText = 'セラー一時保管所';
         else if(viewId === 'view-seller-approved') titleEl.innerText = 'セラーリスト';
-        else if(viewId === 'view-manager-settings') titleEl.innerText = 'Manager 設定';
-        else if(viewId === 'view-researcher-settings') titleEl.innerText = 'Researcher 設定';
+        else if(viewId === 'view-manager-settings') titleEl.innerText = '情報設定';
+        else if(viewId === 'view-researcher-settings') titleEl.innerText = 'リサーチャー設定';
         // 🌟 どれにも当てはまらない画面でも、前の名前が残らないようにする受け皿
         else titleEl.innerText = 'SearchHub NEXT';
       }
@@ -2224,7 +2225,7 @@ async function syncPatrolData() {
                     '<div class="item-meta"><span>' + '<span class="status-tag">' + escapeHtml(item.status) + '</span>' + (dateTimeText ? ' <span class="date-tag" style="font-size:11px; color:#a0aec0;">' + dateTimeText + '</span>' : '') + '</span>' + '<span class="price-tag">' + escapeHtml(item.price) + '</span></div>';
                   if (item.asin && item.asin !== "undefined") {
                     htmlStr += '<div style="margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:10px;">' +
-                      '<button class="auto-asin-btn" data-key="' + uniqueKey + '" data-url="' + item.url + '" onclick="markAsRead(this); openView(\'view-amazon\'); jumpToAmazonResearch(\'' + escapeHtml(item.asin) + '\', \'' + escapeHtml(item.title) + '\', \'' + item.url + '\', \'' + escapeHtml(String(item.price || '')) + '\', \'' + escapeHtml(item.site || '') + '\')">' +
+                      '<button class="auto-asin-btn" data-key="' + uniqueKey + '" data-url="' + item.url + '" onclick="markAsRead(this); openView(\'view-amazon\'); jumpToAmazonResearch(\'' + escapeHtml(item.asin) + '\', \'' + escapeHtml(item.title) + '\', \'' + item.url + '\', \'' + escapeHtml(String(item.price || '')) + '\', \'' + escapeHtml(gasSiteName.replace(/^S/, '')) + '\')">' +
                       '<span style="font-size:14px;">📦</span> ASIN: ' + escapeHtml(item.asin) + ' で一発解析</button></div>';
                   }
                   card.innerHTML = htmlStr; container.appendChild(card);
@@ -2422,7 +2423,12 @@ async function syncPatrolData() {
         //   検索欄や履歴から調べた時は空にして、前の商品の情報が残らないようにする。
         let patrolOrigin = null;
         function jumpToAmazonResearch(asin, title, itemUrl, itemPrice, siteName) {
-          patrolOrigin = itemUrl ? { url: itemUrl, price: itemPrice || "", site: siteName || "" } : null;
+          // 🌟 価格は "¥8,980" の形で届くので、数字だけ取り出して覚える。
+          //   そのまま数値にすると NaN になっていた。
+          const priceNum = parseInt(String(itemPrice || "").replace(/[^0-9]/g, ""), 10);
+          patrolOrigin = itemUrl
+            ? { url: itemUrl, price: isNaN(priceNum) ? 0 : priceNum, site: siteName || "" }
+            : null;
           document.getElementById("amazonKw").value = asin;
           window.scrollTo({ top: 0, behavior: 'smooth' });
           window.__fromJump = true;
@@ -2719,7 +2725,7 @@ async function syncPatrolData() {
               </div>
               
               <div class="calc-box">
-                <div class="calc-row"><span>仕入れ値</span><input type="number" id="bPrice" value="${patrolOrigin && patrolOrigin.price ? patrolOrigin.price : ''}" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
+                <div class="calc-row"><span>仕入れ値</span><input type="number" id="bPrice" value="${patrolOrigin && patrolOrigin.price > 0 ? patrolOrigin.price : ''}" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
                 <div class="calc-row"><span>経費/送料</span><input type="number" id="ePrice" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
                 <div class="calc-row"><span>販売価格</span><input type="number" id="sPrice" value="${minUsed}"></div>
                 <div style="border-top:1px solid #555; margin:12px 0 8px 0; padding-top:8px; font-size:12px; color:#aaa;">
@@ -2732,7 +2738,7 @@ async function syncPatrolData() {
               <button class="register-btn" id="regBtn" onclick="sendToManager('${asin}')" style="margin-bottom:12px;">🚀 SearchHub : Managerへ仕入れ登録</button>
               
               
-              ${patrolOrigin ? `<a href="${patrolOrigin.url}" target="_blank" style="display:block; text-align:center; background:#e53e3e; color:white; text-decoration:none; padding:10px; border-radius:8px; font-weight:bold; font-size:13px; margin-bottom:12px;">🔗 ${patrolOrigin.site || '出品ページ'}${patrolOrigin.price ? ' ¥' + Number(patrolOrigin.price).toLocaleString() : ''} を開く</a>` : ''}
+              ${patrolOrigin ? `<a href="${patrolOrigin.url}" target="_blank" style="display:block; text-align:center; background:#e53e3e; color:white; text-decoration:none; padding:10px; border-radius:8px; font-weight:bold; font-size:13px; margin-bottom:12px;">🔗 ${patrolOrigin.site || '出品ページ'}${patrolOrigin.price > 0 ? ' ¥' + patrolOrigin.price.toLocaleString() : ''} を開く</a>` : ''}
               <div class="grid-3">
                 <a href="https://keepa.com/#!product/5-${asin}" target="_blank" class="btn-link" style="background:#55a676;">Keepa</a>
                 <button onclick="searchAmazonKeyword()" class="btn-link" style="background:#3f51b5; border:none;">検索</button>
@@ -2781,15 +2787,28 @@ async function syncPatrolData() {
              <b>仕入値:</b> ¥${Number(bPrice).toLocaleString()}<br>
              <b>経費/送料:</b> ¥${Number(ePrice).toLocaleString()}<br>
              <b>販売値:</b> ¥${Number(sPrice).toLocaleString()}`;
-    document.getElementById("regPurchaseUrl").value = "";
-          document.getElementById("regPurchaseId").value = "";
+          // 🌟 巡回リストの一発解析から来た時は、購入URLと商品IDを最初から埋めておく。
+          //   URLの末尾から商品IDを取り出すのは autoExtractId と同じやり方。
+          if (patrolOrigin && patrolOrigin.url) {
+            document.getElementById("regPurchaseUrl").value = patrolOrigin.url;
+            let extractedId = "";
+            try {
+              const paths = new URL(patrolOrigin.url).pathname.split('/').filter(p => p !== '');
+              if (paths.length > 0) extractedId = paths[paths.length - 1].split('?')[0];
+            } catch (e) {}
+            document.getElementById("regPurchaseId").value = extractedId;
+          } else {
+            document.getElementById("regPurchaseUrl").value = "";
+            document.getElementById("regPurchaseId").value = "";
+          }
           document.getElementById("confirmRegisterModal").style.display = "flex";
-          fetchSupplierList();
+          // 🌟 仕入れ先も、見つけたサイトを最初から選んでおく(あとから変えられる)
+          fetchSupplierList(patrolOrigin ? patrolOrigin.site : "");
         }
         window.closeConfirmModal = function() {
           document.getElementById("confirmRegisterModal").style.display = "none";
         }
-        async function fetchSupplierList() {
+        async function fetchSupplierList(preferSite) {
           const select = document.getElementById("supplierSelect");
           const ssUrl = AppStorage.get("sh_ssurl", "");
           let targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
@@ -2802,6 +2821,13 @@ async function syncPatrolData() {
             if (json.success && json.data.length > 0) {
               select.innerHTML = '<option value="">選択してください</option>';
               json.data.forEach(sup => { select.innerHTML += `<option value="${sup}">${sup}</option>`; });
+              // 🌟 見つけたサイト名と一致する仕入れ先があれば、最初から選んでおく。
+              //   完全一致だけでなく、どちらかがどちらかを含む場合も拾う
+              //   (例:仕入れ先「メルカリ」と サイト名「メルカリ」)。
+              if (preferSite) {
+                const hit = json.data.find(sup => sup === preferSite || sup.includes(preferSite) || preferSite.includes(sup));
+                if (hit) select.value = hit;
+              }
             } else {
               select.innerHTML = '<option value="">⚠️ リストが見つかりません</option>';
             }

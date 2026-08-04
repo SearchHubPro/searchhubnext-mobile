@@ -110,6 +110,11 @@
     .dash-dot.active { display: block; animation: pop 0.3s ease; }
     .tabs-container { background-color: white; border-bottom: 1px solid #e2e8f0; position: sticky; top: calc(52px + env(safe-area-inset-top)); z-index: 99; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 !important; padding: 0 !important; }
     .tabs-container::-webkit-scrollbar { display: none; }
+    /* 🌟 タブ帯を横にスクロールできるようにする。
+       以前は外側の入れ物にだけスクロールを付けていたが、中のタブ帯が
+       flex:1 で親と同じ幅に固定されるため、はみ出した分までたどり着けず、
+       端のタブ(トレファク等)へ指で移動できなくなっていた。 */
+    .tabs::-webkit-scrollbar { display: none; }
     .tabs { display: flex; white-space: nowrap; padding: 0 4px; margin: 0 !important; }
     .tab-btn { position: relative; padding: 12px 14px; background: none; border: none; font-size: 12px; font-weight: bold; color: #718096; border-bottom: 3px solid transparent; outline: none; flex-shrink: 0; margin: 0; }
     .tab-btn.active { color: #2b6cb0; border-bottom-color: #2b6cb0; background-color: #ebf8ff; }
@@ -976,7 +981,7 @@
   <div id="view-sniper" class="view">
     
     <div class="tabs-container" style="display:flex; align-items:center; gap:8px;">
-      <div class="tabs" id="sniper-tabs" style="flex:1;">
+      <div class="tabs" id="sniper-tabs" style="flex:1; min-width:0; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;">
         <button class="tab-btn active" id="btn-sniper-mercari" onclick="switchTab('sniper-mercari', this, 'view-sniper')">メルカリ<span class="tab-dot"></span></button>
         <button class="tab-btn" onclick="switchTab('sniper-paypay', this, 'view-sniper')">ヤフフリ<span class="tab-dot"></span></button>
         <button class="tab-btn" onclick="switchTab('sniper-offmall', this, 'view-sniper')">オフモ<span class="tab-dot"></span></button>
@@ -992,7 +997,7 @@
   <div id="view-watcher" class="view">
     
     <div class="tabs-container" style="display:flex; align-items:center; gap:8px;">
-      <div class="tabs" id="watcher-tabs" style="flex:1;">
+      <div class="tabs" id="watcher-tabs" style="flex:1; min-width:0; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;">
         <button class="tab-btn active" id="btn-watcher-mercari" onclick="switchTab('watcher-mercari', this, 'view-watcher')">メルカリ<span class="tab-dot"></span></button>
         <button class="tab-btn" onclick="switchTab('watcher-paypay', this, 'view-watcher')">ヤフフリ<span class="tab-dot"></span></button>
         <button class="tab-btn" onclick="switchTab('watcher-yahoo', this, 'view-watcher')">ヤフオク<span class="tab-dot"></span></button>
@@ -3392,7 +3397,15 @@ async function syncPatrolData() {
         // 🚀 ステップ②: 下に引っ張って更新 (Pull to Refresh) の処理
         let ptrStartY = 0; let ptrCurrentY = 0; let ptrIsPulling = false;
         document.addEventListener('touchstart', e => {
-          if (window.scrollY <= 0) { ptrStartY = e.touches[0].clientY; ptrIsPulling = true; }
+          if (window.scrollY <= 0) {
+            ptrStartY = e.touches[0].clientY;
+            // 🌟【不具合の修正】ここで「今の指の位置」を初期化していなかった。
+            //   そのため、前に引っ張ったときの位置が残ったままになり、
+            //   画面の上のほうを軽く触っただけで「60px引っ張った」と判定されて
+            //   勝手に更新が走っていた。触った位置を毎回の起点に揃える。
+            ptrCurrentY = e.touches[0].clientY;
+            ptrIsPulling = true;
+          }
         }, {passive: true});
         document.addEventListener('touchmove', e => {
           if (!ptrIsPulling) return;
@@ -5803,7 +5816,7 @@ async function syncPatrolData() {
         const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "syncPatrolTargets", scope: currentProgressScope }) });
         const result = await res.json();
         if (result.success) {
-          showToast("✅ " + label + "のURL同期が終わりました(追加 " + (result.created || 0) + "件 / 削除 " + (result.deactivated || 0) + "件)");
+          showToast("✅ " + label + "のURL同期が終わりました(追加 " + (result.created || 0) + "件 / 更新 " + (result.urlUpdated || 0) + "件 / 削除 " + (result.deactivated || 0) + "件)");
           loadPatrolProgress();
         } else {
           showToast("⚠️ 同期に失敗しました " + (result.message || ""));

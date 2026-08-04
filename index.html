@@ -358,7 +358,7 @@
   <div class="header">
     <div class="header-left">
       <button class="header-btn" id="backBtn" style="display:none;" onclick="goBackScreen()"><i class="fas fa-chevron-left"></i></button>
-      <button class="header-btn" style="position:relative; z-index:9999;" onclick="openConfig()"><i class="fas fa-cog"></i></button>
+      <button class="header-btn" id="configBtn" style="position:relative; z-index:9999;" onclick="openConfig()"><i class="fas fa-cog"></i></button>
     </div>
     <div class="header-center">
       <img id="headerLogo" src="https://i.ibb.co/1f3CYVjV/2026-06-04-111628.png" style="height: 28px; display: block; margin: 0 auto; object-fit: contain;">
@@ -1255,6 +1255,9 @@
       <div style="text-align:center; margin-top:14px;">
         <a href="https://billing.stripe.com/p/login/cNi6oGaoe0AD0EI0SV4AU00" target="_blank" rel="noopener" style="font-size:12px; color:#a0aec0; text-decoration:underline; cursor:pointer;"><i class="fas fa-file-invoice-dollar"></i> 解約・お支払い状況の確認はこちら</a>
       </div>
+      <div style="text-align:center; margin-top:8px;">
+        <a href="https://lin.ee/yqLpbzZ" target="_blank" rel="noopener" style="font-size:12px; color:#a0aec0; text-decoration:underline; cursor:pointer;"><i class="fab fa-line"></i> お問い合わせ</a>
+      </div>
       <div class="modal-actions">
         <button style="background:#e2e8f0; color:#4a5568;" onclick="closeConfig()">閉じる</button>
         <button style="background:#1a365d; color:white;" onclick="saveConfig()">設定を保存</button>
@@ -1992,6 +1995,10 @@
       const logoEl = document.getElementById('headerLogo');
       const textWrapperEl = document.getElementById('headerTextWrapper');
       
+      // 🌟 歯車(設定)はダッシュボードだけに出す。他の画面では隠す。
+      const configBtn = document.getElementById('configBtn');
+      if (configBtn) configBtn.style.display = (viewId === 'view-home') ? 'flex' : 'none';
+
       if(viewId === 'view-home') {
         backBtn.style.display = 'none';
         // 🚀 ホーム画面：画像を表示して、テキストを隠す

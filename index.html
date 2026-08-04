@@ -699,10 +699,17 @@
       
       <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;">
         
-        <button onclick="window.open('https://sellercentral.amazon.co.jp/order-reports-and-feeds/reports/allOrders#', '_blank'); window.open('https://sellercentral.amazon.co.jp/payments/reports-repository/ref=xx_rrepo_dnav_xx', '_blank');" 
-                style="background:#4a5568; color:white; border:none; padding:6px 10px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer; display:flex; align-items:center;">
-          <i class="fas fa-external-link-alt" style="margin-right: 4px;"></i> レポート取得
-        </button>
+        <!-- 🌟【修正】1回の操作で2つのタブを開くと、スマホでは2つ目が
+             ブロックされて開かない(ポップアップ扱いになるため)。
+             ボタンを2つに分けて、押した数だけ開くようにした。 -->
+        <a href="https://sellercentral.amazon.co.jp/order-reports-and-feeds/reports/allOrders#" target="_blank" rel="noopener"
+           style="background:#4a5568; color:white; text-decoration:none; padding:6px 10px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer; display:flex; align-items:center;">
+          <i class="fas fa-external-link-alt" style="margin-right: 4px;"></i> 注文レポート(TXT)
+        </a>
+        <a href="https://sellercentral.amazon.co.jp/payments/reports-repository/ref=xx_rrepo_dnav_xx" target="_blank" rel="noopener"
+           style="background:#4a5568; color:white; text-decoration:none; padding:6px 10px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1); cursor:pointer; display:flex; align-items:center;">
+          <i class="fas fa-external-link-alt" style="margin-right: 4px;"></i> 支払レポート(CSV)
+        </a>
         <label id="mini-drop-zone" style="background:#f8fafc; border: 2px dashed #cbd5e0; color:#4a5568; padding:4px 10px; border-radius:6px; font-size:10px; font-weight:bold; cursor:pointer; display:flex; align-items:center; transition: all 0.2s;" 
                ondragover="handleDragOverMini(event)" 
                ondragleave="handleDragLeaveMini(event)" 

@@ -2787,20 +2787,9 @@ async function syncPatrolData() {
              <b>仕入値:</b> ¥${Number(bPrice).toLocaleString()}<br>
              <b>経費/送料:</b> ¥${Number(ePrice).toLocaleString()}<br>
              <b>販売値:</b> ¥${Number(sPrice).toLocaleString()}`;
-          // 🌟 巡回リストの一発解析から来た時は、購入URLと商品IDを最初から埋めておく。
-          //   URLの末尾から商品IDを取り出すのは autoExtractId と同じやり方。
-          if (patrolOrigin && patrolOrigin.url) {
-            document.getElementById("regPurchaseUrl").value = patrolOrigin.url;
-            let extractedId = "";
-            try {
-              const paths = new URL(patrolOrigin.url).pathname.split('/').filter(p => p !== '');
-              if (paths.length > 0) extractedId = paths[paths.length - 1].split('?')[0];
-            } catch (e) {}
-            document.getElementById("regPurchaseId").value = extractedId;
-          } else {
-            document.getElementById("regPurchaseUrl").value = "";
-            document.getElementById("regPurchaseId").value = "";
-          }
+          // 🌟 購入URLと商品IDは手入力にする(自動で入れない)
+          document.getElementById("regPurchaseUrl").value = "";
+          document.getElementById("regPurchaseId").value = "";
           document.getElementById("confirmRegisterModal").style.display = "flex";
           // 🌟 仕入れ先も、見つけたサイトを最初から選んでおく(あとから変えられる)
           fetchSupplierList(patrolOrigin ? patrolOrigin.site : "");

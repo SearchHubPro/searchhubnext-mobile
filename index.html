@@ -2316,7 +2316,10 @@ async function syncPatrolData() {
               
               // 🚀 タブが無い画面なら、右スワイプで即ホームへ(全画面共通)
               if (diffX > 50 && !TABBED_VIEWS.includes(currentActiveView)) {
-                openView('view-home'); return;
+                // 🌟 いつもホームへ飛ばすのではなく、来た画面へ戻す。
+                //   巡回リストから「一発解析」でAmazonリサーチを開いて右へ払うと、
+                //   ダッシュボードに飛ばされて巡回リストに戻れなかった。
+                goBackScreen(); return;
               }
               
               // 🔄 タブがある画面の処理
@@ -2334,7 +2337,7 @@ async function syncPatrolData() {
                 // 一番左のタブ(currentIndex === 0)の時にさらに右スワイプしたらホームに戻る!
                 // (ただし、元々ホーム画面にいる時は除く)
                 if (currentIndex === 0 && currentActiveView !== 'view-home') {
-                   openView('view-home'); return;
+                   goBackScreen(); return;
                 }
                 // それ以外なら、純粋に左のタブへ移動
                 if (currentIndex > 0) {

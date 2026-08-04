@@ -2614,6 +2614,11 @@ async function syncPatrolData() {
             // 👇 この2行を追加や
             window.tmpFbaFee = fbaFee;
             window.tmpFeePercent = referralFeePercent;
+            // 🌟 仕入れリストへ追加する時に使う値も覚えておく
+            window.tmpAsin = asin;
+            window.tmpAvgUsed = avgUsed;
+            window.tmpMinUsed = minUsed;
+            window.tmpUsedOffers = usedOffers;
             const drops = p.stats.salesRankDrops90 || 0; 
             const mSales = Math.floor(drops / 3);
             // 🚀 シートの「自分流ロジック（7点満点）」を計算
@@ -2643,6 +2648,7 @@ async function syncPatrolData() {
             else if (score >= 3) { rank = 'B'; rColor = '#32cd32'; } // 緑
             else if (score === 2) { rank = 'C'; rColor = '#1e90ff'; } // 青
             else if (score === 1) { rank = 'D'; rColor = '#808080'; } // グレー
+            window.tmpRank = rank;
             
             // 🌟 サイズ判定はサーバー(cron)と完全に同じルールにする。
             //    Amazon FBAの標準サイズ上限は 45cm × 35cm × 20cm / 9kg。
@@ -2677,6 +2683,7 @@ async function syncPatrolData() {
               ownInventoryCount = globalAllOwnInventory[targetAsin];
             }
             // 💡 店舗モバイル版と同じ、コンパクトな1行レイアウト
+            window.tmpSizeTier = sizeTier;
             resView.innerHTML = `
               <div class="card" style="display:flex; gap:12px; align-items:flex-start; margin-bottom:4px; padding-bottom:8px;">
                 ${imgHtml}
@@ -2735,7 +2742,8 @@ async function syncPatrolData() {
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:14px; color:#90cdf4;"><span>入金目安</span><span id="resNyukin">--</span></div>
                 <div style="display:flex; justify-content:space-between; font-size:18px; color:#48bb78;"><span>想定利益</span><span id="resProfit">--</span></div>
               </div>
-              <button class="register-btn" id="regBtn" onclick="sendToManager('${asin}')" style="margin-bottom:12px;">🚀 SearchHub : Managerへ仕入れ登録</button>
+              <button class="register-btn" id="regBtn" onclick="sendToManager('${asin}')" style="margin-bottom:8px;">🚀 SearchHub : Managerへ仕入れ登録</button>
+              <button id="addInvBtn" onclick="addToInventoryList()" style="width:100%; background:#2b6cb0; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; font-size:14px; margin-bottom:12px; cursor:pointer;">📋 仕入れリストへ追加(巡回対象にする)</button>
               
               
               ${patrolOrigin ? `<a href="${patrolOrigin.url}" target="_blank" style="display:block; text-align:center; background:#e53e3e; color:white; text-decoration:none; padding:10px; border-radius:8px; font-weight:bold; font-size:13px; margin-bottom:12px;">🔗 ${patrolOrigin.site || '出品ページ'}${patrolOrigin.price > 0 ? ' ¥' + patrolOrigin.price.toLocaleString() : ''} を開く</a>` : ''}
@@ -2767,6 +2775,53 @@ async function syncPatrolData() {
         }
         
         let pendingRegData = {};
+        // 🌟 Amazonリサーチで調べた商品を、そのまま仕入れリストへ入れる。
+        //   自動リサーチを通らなくても巡回の対象にできる。
+        //   仕入れ目安の計算はサーバー側で自動リサーチと同じ式にそろえている。
+        window.addToInventoryList = async function() {
+          const btn = document.getElementById("addInvBtn");
+          if (!window.tmpAsin) return alert("先に商品を検索してください");
+          const mgrUrl = AppStorage.get("sh_sniper_url", "") || AppStorage.get("sh_tensite_url", "");
+          if (!mgrUrl) return alert("⚙️設定でマネージャーAPI URLを入力してください");
+          const original = btn ? btn.innerHTML : "";
+          if (btn) { btn.disabled = true; btn.innerHTML = "⌛ 追加中..."; }
+          try {
+            const res = await fetchWithAuth(mgrUrl, {
+              method: "POST",
+              body: JSON.stringify({
+                command: "addInventoryItem",
+                data: {
+                  asin: window.tmpAsin,
+                  title: window.tmpTitle || "",
+                  model: window.tmpModel || "",
+                  rank: window.tmpRank || "",
+                  sizeTier: window.tmpSizeTier || "",
+                  fbaFee: window.tmpFbaFee || 0,
+                  referralFeePercent: window.tmpFeePercent || 10,
+                  sellPrice: window.tmpAvgUsed || 0,
+                  minUsedPrice: window.tmpMinUsed || 0,
+                  usedOffers: window.tmpUsedOffers,
+                  imageUrl: window.tmpImg || ""
+                }
+              })
+            });
+            const json = await res.json();
+            if (json.success) {
+              if (btn) { btn.style.background = "#38a169"; btn.innerHTML = "✅ " + (json.message || "追加しました"); }
+              // 仕入れリストを開いたときに読み直させる
+              try { globalPurchaseListData = []; } catch (e) {}
+              setTimeout(() => {
+                if (btn) { btn.style.background = "#2b6cb0"; btn.innerHTML = original; btn.disabled = false; }
+              }, 2500);
+            } else {
+              alert(json.message || "追加できませんでした");
+              if (btn) { btn.innerHTML = original; btn.disabled = false; }
+            }
+          } catch (e) {
+            alert("通信エラーが発生しました");
+            if (btn) { btn.innerHTML = original; btn.disabled = false; }
+          }
+        }
         window.sendToManager = function(asin) {
           const bPrice = document.getElementById("bPrice").value || 0;
           const ePrice = document.getElementById("ePrice").value || 0;

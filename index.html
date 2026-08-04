@@ -368,7 +368,10 @@
         <div class="last-update" id="lastUpdate">待機中...</div>
       </div>
     </div>
-    <div class="header-right"></div>
+    <div class="header-right">
+      <!-- 🌟 巡回リストの一発解析から来た時だけ出る。押すとその出品ページが開く -->
+      <a id="patrolLinkBtn" href="#" target="_blank" rel="noopener" style="display:none; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; background:#e53e3e; color:#fff; text-decoration:none; font-size:16px;"><i class="fas fa-play"></i></a>
+    </div>
   </div>
 </div>
   <div id="view-home" class="view active">
@@ -1364,7 +1367,22 @@
 </div>
       
       
-  </div> </div><div id="confirmRegisterModal" class="modal">
+  </div> </div><div id="registerChoiceModal" class="modal">
+    <div class="modal-content" style="max-width:360px;">
+      <h3 style="margin-top:0;">🚀 商品登録</h3>
+      <div id="registerChoiceInfo" style="font-size:12px; color:#718096; margin-bottom:14px; line-height:1.6;"></div>
+      <button onclick="chooseRegisterLedger()" style="width:100%; background:#1a365d; color:white; border:none; padding:14px; border-radius:8px; font-weight:bold; font-size:14px; margin-bottom:10px; cursor:pointer; text-align:left;">
+        🧾 販売管理へ登録<br><span style="font-weight:normal; font-size:11px; opacity:0.85;">もう仕入れた商品。帳簿に記帳します</span>
+      </button>
+      <button onclick="chooseRegisterInventory()" style="width:100%; background:#2b6cb0; color:white; border:none; padding:14px; border-radius:8px; font-weight:bold; font-size:14px; margin-bottom:4px; cursor:pointer; text-align:left;">
+        📋 仕入れリストへ追加<br><span style="font-weight:normal; font-size:11px; opacity:0.85;">これから追う商品。巡回の対象になります</span>
+      </button>
+      <div class="modal-actions">
+        <button style="background:#e2e8f0; color:#4a5568;" onclick="document.getElementById('registerChoiceModal').style.display='none'">キャンセル</button>
+      </div>
+    </div>
+  </div>
+<div id="confirmRegisterModal" class="modal">
     <div class="modal-content">
       <h3>🚀 仕入れ登録の最終確認</h3>
       <div id="confirmDetails" style="font-size:13px; color:#4a5568; margin-bottom:12px; line-height:1.6; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
@@ -1995,6 +2013,13 @@
       const logoEl = document.getElementById('headerLogo');
       const textWrapperEl = document.getElementById('headerTextWrapper');
       
+      // 🌟 ヘッダー右の▶️は、Amazonリサーチの画面にいる時だけ出す
+      {
+        const pBtn = document.getElementById('patrolLinkBtn');
+        if (pBtn && viewId !== 'view-amazon') pBtn.style.display = 'none';
+        if (pBtn && viewId === 'view-amazon' && typeof updatePatrolLinkBtn === 'function') updatePatrolLinkBtn();
+      }
+
       // 🌟 歯車(設定)はダッシュボードだけに出す。他の画面では隠す。
       const configBtn = document.getElementById('configBtn');
       if (configBtn) configBtn.style.display = (viewId === 'view-home') ? 'flex' : 'none';
@@ -2436,6 +2461,18 @@ async function syncPatrolData() {
         //   「その出品を開く」ボタンを出し、仕入れ値にも拾った価格を入れる。
         //   検索欄や履歴から調べた時は空にして、前の商品の情報が残らないようにする。
         let patrolOrigin = null;
+        // 🌟 ヘッダー右の▶️。巡回リストから来た時だけ出して、その出品ページへ飛ばす。
+        function updatePatrolLinkBtn() {
+          const btn = document.getElementById("patrolLinkBtn");
+          if (!btn) return;
+          if (patrolOrigin && patrolOrigin.url) {
+            btn.href = patrolOrigin.url;
+            btn.title = (patrolOrigin.site || "出品ページ") + (patrolOrigin.price > 0 ? " ¥" + patrolOrigin.price.toLocaleString() : "");
+            btn.style.display = "flex";
+          } else {
+            btn.style.display = "none";
+          }
+        }
         function jumpToAmazonResearch(asin, title, itemUrl, itemPrice, siteName) {
           // 🌟 価格は "¥8,980" の形で届くので、数字だけ取り出して覚える。
           //   そのまま数値にすると NaN になっていた。
@@ -2446,6 +2483,7 @@ async function syncPatrolData() {
           document.getElementById("amazonKw").value = asin;
           window.scrollTo({ top: 0, behavior: 'smooth' });
           window.__fromJump = true;
+          updatePatrolLinkBtn();
           runAmazonResearch(title);
         }
         function copyAsin(asin) { if (asin && asin !== "B000000000") { navigator.clipboard.writeText(asin).then(() => { const icon = document.getElementById('copyIcon'); if(icon) { icon.className = "fas fa-check text-green-500 text-[12px] ml-1"; setTimeout(() => { icon.className = "far fa-copy text-gray-400 text-[12px] ml-1"; }, 1500); } }); } }
@@ -2542,6 +2580,7 @@ async function syncPatrolData() {
           //   前に見ていた出品の情報を捨てる。別商品のリンクが残らないように。
           if (!keepOrigin && !window.__fromJump) patrolOrigin = null;
           window.__fromJump = false;
+          updatePatrolLinkBtn();
           const kw = document.getElementById("amazonKw").value.trim(); 
           const resView = document.getElementById("amazonResult"); 
           const apiKey = AppStorage.get("sh_keepa", "");
@@ -2756,11 +2795,9 @@ async function syncPatrolData() {
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:14px; color:#90cdf4;"><span>入金目安</span><span id="resNyukin">--</span></div>
                 <div style="display:flex; justify-content:space-between; font-size:18px; color:#48bb78;"><span>想定利益</span><span id="resProfit">--</span></div>
               </div>
-              <button class="register-btn" id="regBtn" onclick="sendToManager('${asin}')" style="margin-bottom:8px;">🚀 SearchHub : Managerへ仕入れ登録</button>
-              <button id="addInvBtn" onclick="addToInventoryList()" style="width:100%; background:#2b6cb0; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; font-size:14px; margin-bottom:12px; cursor:pointer;">📋 仕入れリストへ追加(巡回対象にする)</button>
+              <button class="register-btn" id="regBtn" onclick="openRegisterChoice('${asin}')" style="margin-bottom:12px;">🚀 商品登録</button>
               
               
-              ${patrolOrigin ? `<a href="${patrolOrigin.url}" target="_blank" style="display:block; text-align:center; background:#e53e3e; color:white; text-decoration:none; padding:10px; border-radius:8px; font-weight:bold; font-size:13px; margin-bottom:12px;">🔗 ${patrolOrigin.site || '出品ページ'}${patrolOrigin.price > 0 ? ' ¥' + patrolOrigin.price.toLocaleString() : ''} を開く</a>` : ''}
               <div class="grid-3">
                 <a href="https://keepa.com/#!product/5-${asin}" target="_blank" class="btn-link" style="background:#55a676;">Keepa</a>
                 <button onclick="searchAmazonKeyword()" class="btn-link" style="background:#3f51b5; border:none;">検索</button>
@@ -2835,6 +2872,24 @@ async function syncPatrolData() {
             alert("通信エラーが発生しました");
             if (btn) { btn.innerHTML = original; btn.disabled = false; }
           }
+        }
+        // 🌟 登録ボタンは1つ。押したら、どちらに入れるかをここで選ぶ。
+        let pendingRegisterAsin = "";
+        window.openRegisterChoice = function(asin) {
+          pendingRegisterAsin = asin;
+          const info = document.getElementById("registerChoiceInfo");
+          if (info) {
+            info.innerHTML = "<b>" + (window.tmpTitle || asin) + "</b><br>ASIN: " + asin;
+          }
+          document.getElementById("registerChoiceModal").style.display = "flex";
+        }
+        window.chooseRegisterLedger = function() {
+          document.getElementById("registerChoiceModal").style.display = "none";
+          sendToManager(pendingRegisterAsin);
+        }
+        window.chooseRegisterInventory = function() {
+          document.getElementById("registerChoiceModal").style.display = "none";
+          addToInventoryList();
         }
         window.sendToManager = function(asin) {
           const bPrice = document.getElementById("bPrice").value || 0;

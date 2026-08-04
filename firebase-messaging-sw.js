@@ -32,8 +32,14 @@ async function refreshAppBadge() {
   try {
     if (!self.navigator || !('setAppBadge' in self.navigator)) return;
     const list = await self.registration.getNotifications();
-    if (list && list.length > 0) {
-      await self.navigator.setAppBadge(list.length);
+    // 🌟 数えるのは kind="system" の通知だけ。
+    //   巡回で見つけた1件ずつの新着(kind="item")は数に入れない。
+    //   1日に何十件も出るので、数えると赤バッジが常に3桁になって意味が無くなる。
+    //   数えるのは「ウォッチャー巡回完了」「リサーチ完了」など、
+    //   件数が少なくて見落とすと困るものだけ。
+    const count = (list || []).filter((n) => (n.data && n.data.kind) === "system").length;
+    if (count > 0) {
+      await self.navigator.setAppBadge(count);
     } else {
       await self.navigator.clearAppBadge();
     }
@@ -47,6 +53,9 @@ messaging.onBackgroundMessage((payload) => {
   const title = payload.data?.title || payload.notification?.title || "SearchHub";
   const body = payload.data?.body || payload.notification?.body || "";
   const link = payload.data?.link || payload.fcmOptions?.link || "https://searchhubpro.github.io/searchhubnext-mobile/";
+  // 🌟 バッジで数えるかどうかの目印。サーバーから送られてくる。
+  //   付いていない古い通知は "item" 扱い(＝数えない)にする。
+  const kind = payload.data?.kind || "item";
   // 🌟 同じ内容(タイトル+本文)には同じtagを付ける。ブラウザは同じtagの通知が
   // 来たら、新しく増やすのではなく既存のものを上書きしてくれるので、
   // 原因がどこにあっても、画面に2つ並んで表示されることは物理的に無くなる。
@@ -54,7 +63,7 @@ messaging.onBackgroundMessage((payload) => {
   return self.registration.showNotification(title, {
     body,
     icon: "https://i.ibb.co/Tx2N76YL/icon.png",
-    data: { url: link },
+    data: { url: link, kind },
     tag,
     renotify: false
   }).then(refreshAppBadge);

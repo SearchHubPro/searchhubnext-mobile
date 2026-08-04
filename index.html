@@ -619,6 +619,16 @@
           <input type="number" id="rs-maxUrls" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:12px;">
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">✅ ヤフオク合格ライン(件数以上)</label>
           <input type="number" id="rs-minRecordCount" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:16px;">
+          <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">📉 下落商品削除(%以上下がっていたら対象外)</label>
+          <input type="number" id="rs-dropPriceDown" placeholder="10" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:4px;">
+          <div style="font-size:11px; color:#718096; margin-bottom:12px; line-height:1.6;">
+            90日平均に対して直近30日平均がこの割合以上下がっている商品を、自動リサーチの対象から外します。0にすると働きません。
+          </div>
+          <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">👥 飽和商品削除(中古の出品者が◯人以上)</label>
+          <input type="number" id="rs-dropSaturated" placeholder="20" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:4px;">
+          <div style="font-size:11px; color:#718096; margin-bottom:16px; line-height:1.6;">
+            中古の出品者がこの人数以上の商品を、自動リサーチの対象から外します。0にすると働きません。
+          </div>
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:6px;">🎯 ターゲットカテゴリー(チェックしたものを抽出)</label>
           <div id="rs-category-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px;"></div>
         </div>
@@ -2672,6 +2682,16 @@ async function syncPatrolData() {
             window.tmpAvgUsed = avgUsed;
             window.tmpMinUsed = minUsed;
             window.tmpUsedOffers = usedOffers;
+            // 🌟 値動き:30日平均が90日平均から何%ずれているか(+なら右上がり)
+            const avg30Used = (p.stats.avg30 && p.stats.avg30[2] > 0) ? p.stats.avg30[2] : 0;
+            const priceTrend = (avg30Used > 0 && avgUsed > 0)
+              ? Math.round(((avg30Used - avgUsed) / avgUsed) * 1000) / 10
+              : null;
+            window.tmpPriceTrend = priceTrend;
+            // 🌟 相場が読めない商品の印(中古が新品以上 / 中古の出品者が1人以下)
+            const avgNewPrice = (p.stats.avg90 && p.stats.avg90[1] > 0) ? p.stats.avg90[1] : 0;
+            const marketUnclear = (usedOffers <= 1) || (avgUsed > 0 && avgNewPrice > 0 && avgUsed >= avgNewPrice * 0.95);
+            window.tmpMarketUnclear = marketUnclear;
             const drops = p.stats.salesRankDrops90 || 0; 
             const mSales = Math.floor(drops / 3);
             // 🚀 シートの「自分流ロジック（7点満点）」を計算
@@ -2772,6 +2792,9 @@ async function syncPatrolData() {
                 <div class="market-price-card" style="background:#ebf8ff; border:1px solid #bee3f8; padding:8px 4px; border-radius:8px; text-align:center;">
                   <div style="font-size:10px; color:#2b6cb0; font-weight:bold; margin-bottom:2px;">平均(90)</div>
                   <div style="font-size:13px; font-weight:bold; color:#2c5282;">¥${avgUsed > 0 ? avgUsed.toLocaleString() : '0'}</div>
+                  <!-- 🌟 30日平均と比べた値動き。↗上がり ↘下がり →横ばい(±3%) -->
+                  <div style="font-size:10px; margin-top:2px;">${trendLabel(priceTrend)}</div>
+                  ${marketUnclear ? '<div style="font-size:9px; margin-top:2px;">' + unclearBadge(true) + '</div>' : ''}
                 </div>
                 <div class="market-price-card" style="background:#fff5f5; border:1px solid #fed7d7; padding:8px 4px; border-radius:8px; text-align:center;">
                   <div style="font-size:10px; color:#c53030; font-weight:bold; margin-bottom:2px;">中古最安</div>
@@ -2852,6 +2875,8 @@ async function syncPatrolData() {
                   sellPrice: window.tmpAvgUsed || 0,
                   minUsedPrice: window.tmpMinUsed || 0,
                   usedOffers: window.tmpUsedOffers,
+                  priceTrend: window.tmpPriceTrend,
+                  marketUnclear: window.tmpMarketUnclear === true,
                   imageUrl: window.tmpImg || ""
                 }
               })
@@ -3434,6 +3459,7 @@ async function syncPatrolData() {
                   </div>
                   <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold; color:#4a5568; margin-top:4px;">
                     <span>出品者(中古): ${offersLabel(item.usedOffers)}</span>
+                    <span>値動き90日: ${trendLabel(item.priceTrend)}${unclearBadge(item.marketUnclear)}</span>
                   </div>
                 </div>
                 
@@ -4681,7 +4707,7 @@ async function syncPatrolData() {
               <div style="font-size:9px; color:#718096; line-height:1.4;">
                 No.${displayNo}　登録:${rDateStr} 仕入:${pDateStr} 精査:${cDateStr}<br>
                 平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}<br>
-                出品者: ${offersLabel(item.usedOffers)}
+                出品者: ${offersLabel(item.usedOffers)}　値動き: ${trendLabel(item.priceTrend)}${unclearBadge(item.marketUnclear)}
               </div>
               <!-- 🌟 ランクとサイズは、商品名や型番の長さで位置がずれないよう、
                    ボタンの真上に固定する(ランク=Amazonの上 / サイズ=編集の上)。 -->
@@ -5454,6 +5480,24 @@ async function syncPatrolData() {
     // 🌟 中古の出品者数(ライバルの数)を、色付きの短い文字にする。
     //   少ないほど有利なので、1〜2人は緑、3〜5人は普通、8人以上は赤。
     //   まだ取れていない(古い行)は「-」。
+    // 🌟 値動き(30日平均が90日平均から何%ずれているか)を、短い印にする。
+    //   +3%より上なら右上がり、-3%より下なら右下がり、その間は横ばい。
+    //   まだ取れていない行は「-」。
+    // 🌟 相場が読めない商品の印。
+    //   中古の平均が新品以上、または中古の出品者が1人以下のとき。
+    //   その平均は「相場」ではなく1人の言い値なので、鵜呑みにしない。
+    function unclearBadge(flag) {
+      if (!flag) return '';
+      return '<span title="中古の出品者が少ない、または中古が新品より高い。平均価格が相場を表していない可能性があります" style="background:#dd6b20; color:#fff; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:900; margin-left:4px;">⚠️相場不明</span>';
+    }
+    function trendLabel(v) {
+      if (v === null || v === undefined || v === "") return '<span style="color:#a0aec0;">-</span>';
+      const n = Number(v);
+      if (!isFinite(n)) return '<span style="color:#a0aec0;">-</span>';
+      if (n > 3)  return '<span style="color:#2f855a; font-weight:900;">↗ ' + n.toFixed(1) + '%</span>';
+      if (n < -3) return '<span style="color:#c53030; font-weight:900;">↘ ' + n.toFixed(1) + '%</span>';
+      return '<span style="color:#4a5568; font-weight:900;">→ ' + n.toFixed(1) + '%</span>';
+    }
     function offersLabel(n) {
       if (n === null || n === undefined || n === "") return '<span style="color:#a0aec0;">-</span>';
       const v = Number(n);
@@ -5897,6 +5941,8 @@ async function syncPatrolData() {
         document.getElementById("rs-excludeBrands").value = d.exclude_brands || "";
         document.getElementById("rs-maxUrls").value = d.max_urls_per_run ?? 3;
         document.getElementById("rs-minRecordCount").value = d.min_record_count ?? 3;
+        document.getElementById("rs-dropPriceDown").value = d.drop_price_down_percent ?? 10;
+        document.getElementById("rs-dropSaturated").value = d.drop_saturated_offers ?? 20;
         renderRsCategoryGrid(d.target_category_ids || []);
         document.getElementById("rs-batchSize").value = d.batch_size ?? 20;
         document.getElementById("rs-priceMin").value = d.price_min ?? "";
@@ -5926,6 +5972,8 @@ async function syncPatrolData() {
         exclude_brands: document.getElementById("rs-excludeBrands").value,
         max_urls_per_run: parseInt(document.getElementById("rs-maxUrls").value, 10) || 3,
         min_record_count: parseInt(document.getElementById("rs-minRecordCount").value, 10) || 3,
+        drop_price_down_percent: parseInt(document.getElementById("rs-dropPriceDown").value, 10) || 0,
+        drop_saturated_offers: parseInt(document.getElementById("rs-dropSaturated").value, 10) || 0,
         target_category_ids: categoryIds,
         batch_size: parseInt(document.getElementById("rs-batchSize").value, 10) || 20,
         price_min: parseFloat(document.getElementById("rs-priceMin").value) || null,

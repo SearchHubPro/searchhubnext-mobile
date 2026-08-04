@@ -449,15 +449,17 @@
                   <option value="">月を選択...</option>
                </select>
             </div>
-            <div style="display: flex; justify-content: space-around; align-items: center; border-top: 1px dashed #e2e8f0; padding-top: 24px;">
-               <div style="text-align: center;">
+            <!-- 🌟 金額が6桁になると右側がはみ出して切れていたので、
+                 幅に合わせて縮むようにした(文字はできる範囲で大きいまま) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px dashed #e2e8f0; padding-top: 24px;">
+               <div style="text-align: center; flex: 1; min-width: 0;">
                  <div style="font-size: 13px; color: #718096; margin-bottom: 6px; font-weight:bold;">期首在庫（月初め）</div>
-                 <div style="font-size: 32px; font-weight: 900; color: #2b6cb0;" id="val-kishu">¥--</div>
+                 <div style="font-size: clamp(18px, 6.5vw, 32px); font-weight: 900; color: #2b6cb0; white-space: nowrap;" id="val-kishu">¥--</div>
                </div>
-               <div style="font-size: 28px; color: #cbd5e0;"><i class="fas fa-chevron-right"></i></div>
-               <div style="text-align: center;">
+               <div style="font-size: 22px; color: #cbd5e0; flex-shrink: 0;"><i class="fas fa-chevron-right"></i></div>
+               <div style="text-align: center; flex: 1; min-width: 0;">
                  <div style="font-size: 13px; color: #718096; margin-bottom: 6px; font-weight:bold;">期末在庫（月末）</div>
-                 <div style="font-size: 32px; font-weight: 900; color: #e53e3e;" id="val-kimatsu">¥--</div>
+                 <div style="font-size: clamp(18px, 6.5vw, 32px); font-weight: 900; color: #e53e3e; white-space: nowrap;" id="val-kimatsu">¥--</div>
                </div>
             </div>
           </div>
@@ -2297,9 +2299,16 @@ async function syncPatrolData() {
         // タブが無い画面はどこでも右スワイプでホームに戻る。
         const TABBED_VIEWS = ['view-sniper', 'view-watcher', 'view-monthly', 'view-home'];
         function setupSwipe() {
-          let touchStartX = 0; let touchStartY = 0;
-          document.addEventListener('touchstart', function(e) { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }, {passive: true});
+          let touchStartX = 0; let touchStartY = 0; let startedOnTabs = false;
+          document.addEventListener('touchstart', function(e) {
+            touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY;
+            // 🌟 タブ帯の上で指を動かしたときは、タブを横スクロールしたいだけなので
+            //   画面の切り替え(タブ移動・ホームへ戻る)は起こさない。
+            try { startedOnTabs = !!(e.target && e.target.closest && e.target.closest('.tabs')); }
+            catch (err) { startedOnTabs = false; }
+          }, {passive: true});
           document.addEventListener('touchend', function(e) {
+            if (startedOnTabs) { startedOnTabs = false; return; }
             const diffX = e.changedTouches[0].clientX - touchStartX; 
             const diffY = e.changedTouches[0].clientY - touchStartY;
             

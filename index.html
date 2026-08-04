@@ -2012,6 +2012,14 @@
         else if(viewId === 'view-monthly-purchase') titleEl.innerText = '月別仕入情報';
         else if(viewId === 'view-monthly-sales') titleEl.innerText = '月別販売情報';
         else if(viewId === 'view-expense') titleEl.innerText = '経費一覧';
+        // 🌟【追加】指定が抜けていた画面。
+        //   ここに無い画面へ移ると、上の帯が【前の画面の名前のまま】残っていた。
+        else if(viewId === 'view-seller-pending') titleEl.innerText = 'セラー一時保管所';
+        else if(viewId === 'view-seller-approved') titleEl.innerText = 'セラーリスト';
+        else if(viewId === 'view-manager-settings') titleEl.innerText = 'Manager 設定';
+        else if(viewId === 'view-researcher-settings') titleEl.innerText = 'Researcher 設定';
+        // 🌟 どれにも当てはまらない画面でも、前の名前が残らないようにする受け皿
+        else titleEl.innerText = 'SearchHub NEXT';
       }
       
       // ーーー この下は元からあるコードそのまま ーーー
@@ -2216,7 +2224,7 @@ async function syncPatrolData() {
                     '<div class="item-meta"><span>' + '<span class="status-tag">' + escapeHtml(item.status) + '</span>' + (dateTimeText ? ' <span class="date-tag" style="font-size:11px; color:#a0aec0;">' + dateTimeText + '</span>' : '') + '</span>' + '<span class="price-tag">' + escapeHtml(item.price) + '</span></div>';
                   if (item.asin && item.asin !== "undefined") {
                     htmlStr += '<div style="margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:10px;">' +
-                      '<button class="auto-asin-btn" data-key="' + uniqueKey + '" data-url="' + item.url + '" onclick="markAsRead(this); openView(\'view-amazon\'); jumpToAmazonResearch(\'' + escapeHtml(item.asin) + '\', \'' + escapeHtml(item.title) + '\')">' +
+                      '<button class="auto-asin-btn" data-key="' + uniqueKey + '" data-url="' + item.url + '" onclick="markAsRead(this); openView(\'view-amazon\'); jumpToAmazonResearch(\'' + escapeHtml(item.asin) + '\', \'' + escapeHtml(item.title) + '\', \'' + item.url + '\', \'' + escapeHtml(String(item.price || '')) + '\', \'' + escapeHtml(item.site || '') + '\')">' +
                       '<span style="font-size:14px;">📦</span> ASIN: ' + escapeHtml(item.asin) + ' で一発解析</button></div>';
                   }
                   card.innerHTML = htmlStr; container.appendChild(card);
@@ -2408,7 +2416,18 @@ async function syncPatrolData() {
             resDiv.innerHTML = html;
           } catch(err) { resDiv.innerHTML = '<div class="card" style="text-align:center; color:#e53e3e; font-weight:bold;">❌ 通信エラーが発生しました</div>'; }
         }
-        function jumpToAmazonResearch(asin, title) { document.getElementById("amazonKw").value = asin; window.scrollTo({ top: 0, behavior: 'smooth' }); runAmazonResearch(title); }
+        // 🌟 巡回リスト(ウォッチャー/スナイパー)から「一発解析」で来た時だけ、
+        //   その出品の情報を覚えておく。Amazonリサーチの結果に
+        //   「その出品を開く」ボタンを出し、仕入れ値にも拾った価格を入れる。
+        //   検索欄や履歴から調べた時は空にして、前の商品の情報が残らないようにする。
+        let patrolOrigin = null;
+        function jumpToAmazonResearch(asin, title, itemUrl, itemPrice, siteName) {
+          patrolOrigin = itemUrl ? { url: itemUrl, price: itemPrice || "", site: siteName || "" } : null;
+          document.getElementById("amazonKw").value = asin;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          window.__fromJump = true;
+          runAmazonResearch(title);
+        }
         function copyAsin(asin) { if (asin && asin !== "B000000000") { navigator.clipboard.writeText(asin).then(() => { const icon = document.getElementById('copyIcon'); if(icon) { icon.className = "fas fa-check text-green-500 text-[12px] ml-1"; setTimeout(() => { icon.className = "far fa-copy text-gray-400 text-[12px] ml-1"; }, 1500); } }); } }
         function searchAmazonKeyword() { let modelText = document.getElementById('itemModelText') ? document.getElementById('itemModelText').innerText.trim() : ''; if (!modelText || modelText === '-') modelText = document.getElementById('amazonKw').value.trim(); if (!modelText) return alert("検索するキーワードがありません。"); window.open(`https://www.google.com/search?q=${encodeURIComponent(modelText + ' amazon')}`, '_blank'); }
     // 🚀 Amazon履歴の読み込みと保存
@@ -2498,7 +2517,11 @@ async function syncPatrolData() {
           try { Quagga.stop(); Quagga.offDetected(); } catch(e) {}
           document.getElementById('barcodeTestScannerArea').style.display = 'none';
         }
-        async function runAmazonResearch(fallbackTitle) {
+        async function runAmazonResearch(fallbackTitle, keepOrigin) {
+          // 🌟 一発解析(jumpToAmazonResearch)以外から呼ばれた時は、
+          //   前に見ていた出品の情報を捨てる。別商品のリンクが残らないように。
+          if (!keepOrigin && !window.__fromJump) patrolOrigin = null;
+          window.__fromJump = false;
           const kw = document.getElementById("amazonKw").value.trim(); 
           const resView = document.getElementById("amazonResult"); 
           const apiKey = AppStorage.get("sh_keepa", "");
@@ -2696,7 +2719,7 @@ async function syncPatrolData() {
               </div>
               
               <div class="calc-box">
-                <div class="calc-row"><span>仕入れ値</span><input type="number" id="bPrice" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
+                <div class="calc-row"><span>仕入れ値</span><input type="number" id="bPrice" value="${patrolOrigin && patrolOrigin.price ? patrolOrigin.price : ''}" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
                 <div class="calc-row"><span>経費/送料</span><input type="number" id="ePrice" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
                 <div class="calc-row"><span>販売価格</span><input type="number" id="sPrice" value="${minUsed}"></div>
                 <div style="border-top:1px solid #555; margin:12px 0 8px 0; padding-top:8px; font-size:12px; color:#aaa;">
@@ -2709,6 +2732,7 @@ async function syncPatrolData() {
               <button class="register-btn" id="regBtn" onclick="sendToManager('${asin}')" style="margin-bottom:12px;">🚀 SearchHub : Managerへ仕入れ登録</button>
               
               
+              ${patrolOrigin ? `<a href="${patrolOrigin.url}" target="_blank" style="display:block; text-align:center; background:#e53e3e; color:white; text-decoration:none; padding:10px; border-radius:8px; font-weight:bold; font-size:13px; margin-bottom:12px;">🔗 ${patrolOrigin.site || '出品ページ'}${patrolOrigin.price ? ' ¥' + Number(patrolOrigin.price).toLocaleString() : ''} を開く</a>` : ''}
               <div class="grid-3">
                 <a href="https://keepa.com/#!product/5-${asin}" target="_blank" class="btn-link" style="background:#55a676;">Keepa</a>
                 <button onclick="searchAmazonKeyword()" class="btn-link" style="background:#3f51b5; border:none;">検索</button>

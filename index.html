@@ -2151,6 +2151,8 @@
     });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
+        // 🌟 アプリを開いたら、ホーム画面アイコンの赤バッジを消す
+        try { if (navigator.clearAppBadge) navigator.clearAppBadge(); } catch (e) {}
         const urlSniper = AppStorage.get("sh_sniper_url", ""); 
         const url10 = AppStorage.get("sh_tensite_url", "");
         if (urlSniper || url10) {

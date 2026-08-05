@@ -2688,6 +2688,9 @@ async function syncPatrolData() {
               ? Math.round(((avg30Used - avgUsed) / avgUsed) * 1000) / 10
               : null;
             window.tmpPriceTrend = priceTrend;
+            // 🌟 今の価格が30日平均以上なら「下げ止まり・戻し」とみなす
+            const priceRecovering = (avg30Used > 0 && minUsed > 0) ? (minUsed >= avg30Used) : false;
+            window.tmpPriceRecovering = priceRecovering;
             // 🌟 相場が読めない商品の印(中古が新品以上 / 中古の出品者が1人以下)
             const avgNewPrice = (p.stats.avg90 && p.stats.avg90[1] > 0) ? p.stats.avg90[1] : 0;
             const marketUnclear = (usedOffers <= 1) || (avgUsed > 0 && avgNewPrice > 0 && avgUsed >= avgNewPrice * 0.95);
@@ -2793,7 +2796,7 @@ async function syncPatrolData() {
                   <div style="font-size:10px; color:#2b6cb0; font-weight:bold; margin-bottom:2px;">平均(90)</div>
                   <div style="font-size:13px; font-weight:bold; color:#2c5282;">¥${avgUsed > 0 ? avgUsed.toLocaleString() : '0'}</div>
                   <!-- 🌟 30日平均と比べた値動き。↗上がり ↘下がり →横ばい(±3%) -->
-                  <div style="font-size:10px; margin-top:2px;">${trendLabel(priceTrend)}</div>
+                  <div style="font-size:10px; margin-top:2px;">${trendLabel(priceTrend, priceRecovering)}</div>
                   ${marketUnclear ? '<div style="font-size:9px; margin-top:2px;">' + unclearBadge(true) + '</div>' : ''}
                 </div>
                 <div class="market-price-card" style="background:#fff5f5; border:1px solid #fed7d7; padding:8px 4px; border-radius:8px; text-align:center;">
@@ -2876,6 +2879,7 @@ async function syncPatrolData() {
                   minUsedPrice: window.tmpMinUsed || 0,
                   usedOffers: window.tmpUsedOffers,
                   priceTrend: window.tmpPriceTrend,
+                  priceRecovering: window.tmpPriceRecovering === true,
                   marketUnclear: window.tmpMarketUnclear === true,
                   imageUrl: window.tmpImg || ""
                 }
@@ -3459,7 +3463,7 @@ async function syncPatrolData() {
                   </div>
                   <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold; color:#4a5568; margin-top:4px;">
                     <span>出品者(中古): ${offersLabel(item.usedOffers)}</span>
-                    <span>値動き90日: ${trendLabel(item.priceTrend)}${unclearBadge(item.marketUnclear)}</span>
+                    <span>値動き90日: ${trendLabel(item.priceTrend, item.priceRecovering)}${unclearBadge(item.marketUnclear)}</span>
                   </div>
                 </div>
                 
@@ -4707,7 +4711,7 @@ async function syncPatrolData() {
               <div style="font-size:9px; color:#718096; line-height:1.4;">
                 No.${displayNo}　登録:${rDateStr} 仕入:${pDateStr} 精査:${cDateStr}<br>
                 平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}<br>
-                出品者: ${offersLabel(item.usedOffers)}　値動き: ${trendLabel(item.priceTrend)}${unclearBadge(item.marketUnclear)}
+                出品者: ${offersLabel(item.usedOffers)}　値動き: ${trendLabel(item.priceTrend, item.priceRecovering)}${unclearBadge(item.marketUnclear)}
               </div>
               <!-- 🌟 ランクとサイズは、商品名や型番の長さで位置がずれないよう、
                    ボタンの真上に固定する(ランク=Amazonの上 / サイズ=編集の上)。 -->
@@ -5490,12 +5494,18 @@ async function syncPatrolData() {
       if (!flag) return '';
       return '<span title="中古の出品者が少ない、または中古が新品より高い。平均価格が相場を表していない可能性があります" style="background:#dd6b20; color:#fff; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:900; margin-left:4px;">⚠️相場不明</span>';
     }
-    function trendLabel(v) {
+    //   recovering(今の価格が30日平均以上)なら、下がっていても「下げ止まり」として扱う。
+    //   一度だけ段差で下がった商品や、下がったあと戻してきている商品を
+    //   「下落中」と誤って読まないため。
+    function trendLabel(v, recovering) {
       if (v === null || v === undefined || v === "") return '<span style="color:#a0aec0;">-</span>';
       const n = Number(v);
       if (!isFinite(n)) return '<span style="color:#a0aec0;">-</span>';
       if (n > 3)  return '<span style="color:#2f855a; font-weight:900;">↗ ' + n.toFixed(1) + '%</span>';
-      if (n < -3) return '<span style="color:#c53030; font-weight:900;">↘ ' + n.toFixed(1) + '%</span>';
+      if (n < -3) {
+        if (recovering) return '<span style="color:#4a5568; font-weight:900;">→ ' + n.toFixed(1) + '%</span><span style="color:#718096; font-size:9px; margin-left:3px;">下げ止まり</span>';
+        return '<span style="color:#c53030; font-weight:900;">↘ ' + n.toFixed(1) + '%</span>';
+      }
       return '<span style="color:#4a5568; font-weight:900;">→ ' + n.toFixed(1) + '%</span>';
     }
     function offersLabel(n) {

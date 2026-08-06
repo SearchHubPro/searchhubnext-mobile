@@ -138,10 +138,8 @@
     .pl-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 9px; }
     .pl-thumb { width: 64px; height: 64px; flex: none; border: 1px solid #e2e8f0; border-radius: 8px;
                 background: #fff; object-fit: contain; }
-    .pl-thumb-none { width: 64px; height: 64px; flex: none; border: 1px solid #e2e8f0; border-radius: 8px;
-                     background: #f7fafc; }
     .pl-hd { flex: 1; min-width: 0; }
-    .card.read-card .pl-thumb, .card.read-card .pl-thumb-none { opacity: 0.5; }
+    .card.read-card .pl-thumb { opacity: 0.5; }
     .pl-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0; }
     .pl-list { font-size: 12px; color: #4a5568; }
     .pl-list b { font-size: 21px; color: #1a202c; font-weight: 800; letter-spacing: -0.3px; }
@@ -2290,9 +2288,10 @@
       };
       const has = function (v) { return v !== null && v !== undefined && !isNaN(Number(v)); };
 
+      // 🌟 写真が無い商品は、枠だけ置くと空白がぽっかり空くので何も置かない
       const thumbHtml = item.img
-        ? '<img class="pl-thumb" src="' + item.img + '" loading="lazy" alt="" onerror="this.onerror=null; this.className=\'pl-thumb-none\'; this.src=\'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E\';">'
-        : '<div class="pl-thumb-none"></div>';
+        ? '<img class="pl-thumb" src="' + item.img + '" loading="lazy" alt="" onerror="this.onerror=null; this.style.display=\'none\';">'
+        : '';
       const titleHtml = '<div class="item-title"><a href="' + item.url + '" target="_blank" data-key="' + uniqueKey + '" data-url="' + item.url + '" onclick="markAsRead(this)">💎 ' + escapeHtml(item.title) + '</a></div>';
       const headHtml = function (inner) {
         return '<div class="pl-head">' + thumbHtml + '<div class="pl-hd">' + titleHtml + inner + '</div></div>';
@@ -2825,36 +2824,60 @@ async function syncPatrolData() {
             const avgNewPrice = (p.stats.avg90 && p.stats.avg90[1] > 0) ? p.stats.avg90[1] : 0;
             const marketUnclear = (usedOffers <= 1) || (avgUsed > 0 && avgNewPrice > 0 && avgUsed >= avgNewPrice * 0.95);
             window.tmpMarketUnclear = marketUnclear;
-            const drops = p.stats.salesRankDrops90 || 0; 
-            const mSales = Math.floor(drops / 3);
-            // 🚀 シートの「自分流ロジック（7点満点）」を計算
-            let score = 0;
-            if (mSales >= 10) score += 3;
-            else if (mSales >= 5) score += 2;
-            else if (mSales >= 3) score += 1;
-            if (drops >= 20) score += 2;
-            else if (drops >= 10) score += 1;
-            if (usedOffers >= 1 && usedOffers <= 2) score += 2;
-            else if (usedOffers >= 3 && usedOffers <= 5) score += 1;
-            else if (usedOffers >= 8) score -= 2;
-            // 🚨 減点ルールの適用
-            if (score >= 7) {
-              const isPriceDropping = minUsed < avgUsed; // 値崩れ判定
-              const isSellerIncreasing = usedOffers > usedCountAvg90; // ライバル急増判定
-              const isRecentStagnant = (p.stats.salesRankDrops30 || 0) === 0; // 直近30日の動きなし
-              if (isPriceDropping || isSellerIncreasing || isRecentStagnant) {
-                score -= 1; 
-              }
+            const drops = p.stats.salesRankDrops90 || 0;
+            const drops30 = p.stats.salesRankDrops30 || 0;
+            // 🌟 90日平均の中古出品者数。今の人数では埋めない
+            //   (「普段は誰も出していない」がSR判定そのものなので)
+            const usedOffersAvg = (p.stats.avg90 && p.stats.avg90[12] > 0) ? p.stats.avg90[12] : 0;
+
+            // ---------------------------------------------------------
+            // ①【素の位置】売れるまでの日数で決める
+            //   日数 ＝ 90 ×(中古の出品者数＋1)÷ 90日ドロップ数
+            //   S=7日 / A=14日 / B=21日 / C=28日 / D=60日 / それ以上はE
+            //   ※ サーバー(cron)と1文字も変えないこと
+            // ---------------------------------------------------------
+            const LADDER = ['S', 'A', 'B', 'C', 'D', 'E'];
+            const sellDays = drops > 0 ? (90 * (usedOffers + 1)) / drops : null;
+            let rankIdx;
+            if (sellDays === null) rankIdx = 5;
+            else if (sellDays <= 7) rankIdx = 0;
+            else if (sellDays <= 14) rankIdx = 1;
+            else if (sellDays <= 21) rankIdx = 2;
+            else if (sellDays <= 28) rankIdx = 3;
+            else if (sellDays <= 60) rankIdx = 4;
+            else rankIdx = 5;
+
+            // ---------------------------------------------------------
+            // ②【補正】値動きと出品者の増減で上下(上下とも2段まで)
+            // ---------------------------------------------------------
+            let rankShift = 0;
+            if (priceTrend !== null && !priceRecovering) {
+              if (priceTrend <= -15) rankShift -= 2;
+              else if (priceTrend <= -5) rankShift -= 1;
             }
-            // 🏆 ランクの割り当てと色の設定
-            let rank = 'E', rColor = '#808080';
-            if (score >= 7 && drops >= 30) { rank = 'SR'; rColor = '#a855f7'; } // 紫
-            else if (score >= 7) { rank = 'S'; rColor = '#ff0000'; } // 赤
-            else if (score >= 5) { rank = 'A'; rColor = '#ff8c00'; } // オレンジ
-            else if (score >= 3) { rank = 'B'; rColor = '#32cd32'; } // 緑
-            else if (score === 2) { rank = 'C'; rColor = '#1e90ff'; } // 青
-            else if (score === 1) { rank = 'D'; rColor = '#808080'; } // グレー
+            if (priceTrend !== null && priceTrend >= 5) rankShift += 1;
+            if (usedOffersAvg > 0) {
+              if (usedOffers - usedOffersAvg >= 3) rankShift -= 1;
+              else if (usedOffersAvg - usedOffers >= 3) rankShift += 1;
+            }
+            if (drops > 0 && drops30 === 0) rankShift -= 1;
+            if (rankShift > 2) rankShift = 2;
+            if (rankShift < -2) rankShift = -2;
+            rankIdx = Math.max(0, Math.min(LADDER.length - 1, rankIdx - rankShift));
+            let rank = LADDER[rankIdx];
+
+            // ---------------------------------------------------------
+            // ③【SR】レア商品(グラフで中古が点でしか出ないやつ)
+            //   普段は誰も出していない・出たら売れる・新品よりはっきり安い
+            // ---------------------------------------------------------
+            const isRare = usedOffersAvg <= 1 && drops >= 6 && usedOffers <= 2 &&
+              avgUsed > 0 && avgNewPrice > 0 && avgUsed <= avgNewPrice * 0.85;
+            if (isRare && rank === 'S') rank = 'SR';
+
+            const RANK_COLORS = { SR: '#a855f7', S: '#ff0000', A: '#ff8c00', B: '#32cd32', C: '#1e90ff', D: '#808080', E: '#808080' };
+            const rColor = RANK_COLORS[rank] || '#808080';
             window.tmpRank = rank;
+            window.tmpSellDays = sellDays === null ? null : Math.round(sellDays);
             
             // 🌟 サイズ判定はサーバー(cron)と完全に同じルールにする。
             //    Amazon FBAの標準サイズ上限は 45cm × 35cm × 20cm / 9kg。
@@ -2939,7 +2962,9 @@ async function syncPatrolData() {
                   ${bbNote ? `<div style="font-size:9px; color:#718096; margin-top:1px;">${bbNote}</div>` : ''}
                 </div>
               </div>
-              
+
+              ${dropsBand(drops, drops30)}
+
               <div class="calc-box">
                 <div class="calc-row"><span>仕入れ値</span><input type="number" id="bPrice" value="${patrolOrigin && patrolOrigin.price > 0 ? patrolOrigin.price : ''}" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
                 <div class="calc-row"><span>経費/送料</span><input type="number" id="ePrice" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
@@ -5627,6 +5652,35 @@ async function syncPatrolData() {
     //   recovering(今の価格が30日平均以上)なら、下がっていても「下げ止まり」として扱う。
     //   一度だけ段差で下がった商品や、下がったあと戻してきている商品を
     //   「下落中」と誤って読まないため。
+    // 🌟 ドロップ数(ランキングが下がった回数＝売れた回数の目安)を1本の帯にする。
+    //   90日と30日を並べて、右に読み方を一言。
+    //   90日 ÷ 3 が普段の月あたりの目安。30日がそれを大きく下回っていれば
+    //   「直近が鈍い」、大きく上回っていれば「直近が伸びている」。
+    //   Keepaへの問い合わせは増えない(ランクを付けるときに既に読んでいる値)。
+    function dropsBand(d90, d30) {
+      const a = Number(d90) || 0;
+      const b = Number(d30) || 0;
+      const monthly = Math.floor(a / 3);
+      let note = '<span style="color:#a0aec0;">動きが見えない</span>';
+      if (a > 0) {
+        if (b === 0) note = '<span style="color:#c53030;">直近30日は動きなし（普段は月' + monthly + '個ほど）</span>';
+        else if (monthly > 0 && b < monthly * 0.6) note = '<span style="color:#c53030;">直近が鈍い（普段は月' + monthly + '個ほど）</span>';
+        else if (monthly > 0 && b > monthly * 1.4) note = '<span style="color:#2f855a;">直近が伸びている（普段は月' + monthly + '個ほど）</span>';
+        else note = '<span style="color:#2f855a;">月' + monthly + '個ほど</span>';
+      }
+      const num = function (n) {
+        return '<b style="font-size:17px; font-weight:900; margin:0 3px;">' + n + '</b>';
+      };
+      return '<div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:9px 12px;'
+        + ' background:#fffaf0; border:1px solid #fbd38d; border-radius:8px; flex-wrap:wrap;">'
+        + '<span style="font-size:11px; color:#b7791f; font-weight:900; white-space:nowrap;">ドロップ</span>'
+        + '<span style="font-size:11.5px; color:#975a16; font-weight:bold; white-space:nowrap;">90日' + num(a) + '回</span>'
+        + '<span style="color:#fbd38d;">／</span>'
+        + '<span style="font-size:11.5px; color:#975a16; font-weight:bold; white-space:nowrap;">30日' + num(b) + '回</span>'
+        + '<span style="margin-left:auto; font-size:11.5px; font-weight:800; white-space:nowrap;">' + note + '</span>'
+        + '</div>';
+    }
+
     function trendLabel(v, recovering) {
       if (v === null || v === undefined || v === "") return '<span style="color:#a0aec0;">-</span>';
       const n = Number(v);

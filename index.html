@@ -2837,7 +2837,10 @@ async function syncPatrolData() {
             //   ※ サーバー(cron)と1文字も変えないこと
             // ---------------------------------------------------------
             const LADDER = ['S', 'A', 'B', 'C', 'D', 'E'];
-            const sellDays = drops > 0 ? (90 * (usedOffers + 1)) / drops : null;
+            // 🌟 出品者数は平方根で効かせる(4人で2人分・9人で3人分)。
+            //   実績では19人の商品も8人の商品も11日前後で売れていた。
+            //   そのまま人数で割ると19人が44日と出て実態と合わない。
+            const sellDays = drops > 0 ? (90 * (Math.sqrt(usedOffers) + 1)) / drops : null;
             let rankIdx;
             if (sellDays === null) rankIdx = 5;
             else if (sellDays <= 7) rankIdx = 0;
@@ -2850,15 +2853,17 @@ async function syncPatrolData() {
             // ---------------------------------------------------------
             // ②【補正】値動きと出品者の増減で上下(上下とも2段まで)
             // ---------------------------------------------------------
+            //   ・値動きが-20%以下なら1段下げる(下げ止まりなら下げない)
+            //   ・値動きが+10%以上なら1段上げる
+            //   ・出品者が5人以上増え、かつ1.5倍以上なら1段下げる(逆なら上げる)
+            //   ・90日では売れているのに直近30日が0回なら1段下げる
             let rankShift = 0;
-            if (priceTrend !== null && !priceRecovering) {
-              if (priceTrend <= -15) rankShift -= 2;
-              else if (priceTrend <= -5) rankShift -= 1;
-            }
-            if (priceTrend !== null && priceTrend >= 5) rankShift += 1;
-            if (usedOffersAvg > 0) {
-              if (usedOffers - usedOffersAvg >= 3) rankShift -= 1;
-              else if (usedOffersAvg - usedOffers >= 3) rankShift += 1;
+            if (priceTrend !== null && !priceRecovering && priceTrend <= -20) rankShift -= 1;
+            if (priceTrend !== null && priceTrend >= 10) rankShift += 1;
+            if (usedOffersAvg > 0 && usedOffers - usedOffersAvg >= 5 && usedOffers >= usedOffersAvg * 1.5) {
+              rankShift -= 1;
+            } else if (usedOffers > 0 && usedOffersAvg - usedOffers >= 5 && usedOffersAvg >= usedOffers * 1.5) {
+              rankShift += 1;
             }
             if (drops > 0 && drops30 === 0) rankShift -= 1;
             if (rankShift > 2) rankShift = 2;

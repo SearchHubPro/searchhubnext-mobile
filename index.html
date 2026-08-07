@@ -851,6 +851,7 @@
         <input type="text" id="ledger-search-kw" placeholder="SKU・ASIN・商品名・仕入先で検索..." oninput="ledgerCurrentPage=1; renderLedgerList();" style="flex:2;">
         <select id="ledger-status-filter" onchange="ledgerCurrentPage=1; renderLedgerList();" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; outline:none; font-size:12px; font-weight:bold; background:white; color:#1a365d;">
           <option value="ALL">すべて表示</option>
+          <option value="未販売">🚚📦 納品待ち＋出品中</option>
           <option value="納品待ち">🚚 納品待ち</option>
           <option value="出品中">📦 出品中</option> <option value="販売済">💰 販売完了</option>
           <option value="返金済み">🔄 返金済み</option>
@@ -2949,7 +2950,7 @@ async function syncPatrolData() {
                     <span style="font-size:10px; color:#4a72b2; font-weight:bold; margin-bottom:2px;">中古出品</span>
                     <span style="font-size:18px; font-weight:900; color:#2c4c8f; line-height:1;">${usedOffers}</span>
                   </div>
-                  <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; background:${ownInventoryCount > 0 ? '#fff5f5' : '#f0fff4'}; border:1px solid ${ownInventoryCount > 0 ? '#fed7d7' : '#c6f6d5'}; padding:6px 4px; border-radius:8px; box-shadow: ${ownInventoryCount > 0 ? '0 2px 4px rgba(229,62,62,0.2)' : 'none'};">
+                  <div onclick="openLedgerForAsin('${asin}')" title="販売管理の納品待ち＋出品中を見る" style="cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; background:${ownInventoryCount > 0 ? '#fff5f5' : '#f0fff4'}; border:1px solid ${ownInventoryCount > 0 ? '#fed7d7' : '#c6f6d5'}; padding:6px 4px; border-radius:8px; box-shadow: ${ownInventoryCount > 0 ? '0 2px 4px rgba(229,62,62,0.2)' : 'none'};">
                     <span style="font-size:10px; color:${ownInventoryCount > 0 ? '#c53030' : '#2f855a'}; font-weight:bold; margin-bottom:2px;">自在庫</span>
                     <span style="font-size:18px; font-weight:900; color:${ownInventoryCount > 0 ? '#e53e3e' : '#22543d'}; line-height:1;">${ownInventoryCount}</span>
                   </div>
@@ -3020,6 +3021,21 @@ async function syncPatrolData() {
           } catch (err) { resView.innerHTML = '<div class="card" style="color:#e53e3e; text-align:center; font-weight:bold;">❌ 解析エラーが発生しました</div>'; }
         }
         
+
+        // 🌟 Amazonリサーチの「自在庫」を押したら、販売管理をその商品で開く。
+        //   検索欄にASINを入れ、状態を「納品待ち＋出品中」にした状態で表示する。
+        //   自在庫の数字は「まだ売れていない行」を数えているので、それに合わせる。
+        //   一覧をまだ読んでいなければ openView 側が読みに行くので、
+        //   ここでは先に絞り込みの条件だけ入れておけばよい。
+        window.openLedgerForAsin = function (asin) {
+          const kw = document.getElementById('ledger-search-kw');
+          const st = document.getElementById('ledger-status-filter');
+          if (kw) kw.value = asin || '';
+          if (st) st.value = '未販売';
+          try { ledgerCurrentPage = 1; } catch (e) {}
+          openView('view-ledger');
+        };
+
         let pendingRegData = {};
         // 🌟 Amazonリサーチで調べた商品を、そのまま仕入れリストへ入れる。
         //   自動リサーチを通らなくても巡回の対象にできる。
@@ -3955,7 +3971,14 @@ async function syncPatrolData() {
           (item.asin && item.asin.toLowerCase().includes(kw)) ||
           (item.sku && item.sku.toLowerCase().includes(kw)) || 
           (item.supplier && item.supplier.toLowerCase().includes(kw));
-        const matchStatus = (statusFilter === 'ALL') || (item.status && item.status.includes(statusFilter));
+        // 🌟「未販売」は納品待ちと出品中の2つをまとめて出す。
+        //   Amazonリサーチの自在庫を押した時に飛んでくる先で、
+        //   自在庫の数え方(まだ売れていない行)と表示が一致するようにするため。
+        const matchStatus = (statusFilter === 'ALL')
+          ? true
+          : (statusFilter === '未販売')
+            ? (item.status === '納品待ち' || item.status === '出品中')
+            : (item.status && item.status.includes(statusFilter));
         return matchKw && matchStatus;
       });
       countEl.innerText = `表示中: ${filtered.length}件`;

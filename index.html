@@ -2826,9 +2826,6 @@ async function syncPatrolData() {
             window.tmpMarketUnclear = marketUnclear;
             const drops = p.stats.salesRankDrops90 || 0;
             const drops30 = p.stats.salesRankDrops30 || 0;
-            // 🌟 90日平均の中古出品者数。今の人数では埋めない
-            //   (「普段は誰も出していない」がSR判定そのものなので)
-            const usedOffersAvg = (p.stats.avg90 && p.stats.avg90[12] > 0) ? p.stats.avg90[12] : 0;
 
             // ---------------------------------------------------------
             // ①【素の位置】売れるまでの日数で決める
@@ -2836,53 +2833,65 @@ async function syncPatrolData() {
             //   S=7日 / A=14日 / B=21日 / C=28日 / D=60日 / それ以上はE
             //   ※ サーバー(cron)と1文字も変えないこと
             // ---------------------------------------------------------
-            const LADDER = ['S', 'A', 'B', 'C', 'D', 'E'];
-            // 🌟 出品者数は平方根で効かせる(4人で2人分・9人で3人分)。
-            //   実績では19人の商品も8人の商品も11日前後で売れていた。
-            //   そのまま人数で割ると19人が44日と出て実態と合わない。
-            const sellDays = drops > 0 ? (90 * (Math.sqrt(usedOffers) + 1)) / drops : null;
-            let rankIdx;
-            if (sellDays === null) rankIdx = 5;
-            else if (sellDays <= 7) rankIdx = 0;
-            else if (sellDays <= 14) rankIdx = 1;
-            else if (sellDays <= 21) rankIdx = 2;
-            else if (sellDays <= 28) rankIdx = 3;
-            else if (sellDays <= 60) rankIdx = 4;
-            else rankIdx = 5;
-
-            // ---------------------------------------------------------
-            // ②【補正】値動きと出品者の増減で上下(上下とも2段まで)
-            // ---------------------------------------------------------
-            //   ・値動きが-20%以下なら1段下げる(下げ止まりなら下げない)
-            //   ・値動きが+10%以上なら1段上げる
-            //   ・出品者が5人以上増え、かつ1.5倍以上なら1段下げる(逆なら上げる)
-            //   ・90日では売れているのに直近30日が0回なら1段下げる
-            let rankShift = 0;
-            if (priceTrend !== null && !priceRecovering && priceTrend <= -20) rankShift -= 1;
-            if (priceTrend !== null && priceTrend >= 10) rankShift += 1;
-            if (usedOffersAvg > 0 && usedOffers - usedOffersAvg >= 5 && usedOffers >= usedOffersAvg * 1.5) {
-              rankShift -= 1;
-            } else if (usedOffers > 0 && usedOffersAvg - usedOffers >= 5 && usedOffersAvg >= usedOffers * 1.5) {
-              rankShift += 1;
+            const mSales = Math.floor(drops / 3);
+            // 🌟 一度「売れるまでの日数」方式に変えたが、実際の販売実績と
+            //   合わなかったので元の点数制に戻した。
+            //   ドロップ18〜120回とばらついても、実際に売れた日数は
+            //   10.5〜17日しか違わなかった(＝Keepaの数字では読めない)。
+            //   ※ サーバー(cron)の calcRankFromProduct と1文字も変えないこと
+            let score = 0;
+            if (mSales >= 10) score += 3;
+            else if (mSales >= 5) score += 2;
+            else if (mSales >= 3) score += 1;
+            if (drops >= 20) score += 2;
+            else if (drops >= 10) score += 1;
+            if (usedOffers >= 1 && usedOffers <= 2) score += 2;
+            else if (usedOffers >= 3 && usedOffers <= 5) score += 1;
+            else if (usedOffers >= 8) score -= 2;
+            // 🚨 減点ルール(値崩れ中・ライバル急増中・直近30日で1つも売れてない)
+            if (score >= 7) {
+              const isPriceDropping = minUsed < avgUsed;
+              const isSellerIncreasing = usedOffers > usedCountAvg90;
+              const isRecentStagnant = drops30 === 0;
+              if (isPriceDropping || isSellerIncreasing || isRecentStagnant) score -= 1;
             }
-            if (drops > 0 && drops30 === 0) rankShift -= 1;
-            if (rankShift > 2) rankShift = 2;
-            if (rankShift < -2) rankShift = -2;
-            rankIdx = Math.max(0, Math.min(LADDER.length - 1, rankIdx - rankShift));
-            let rank = LADDER[rankIdx];
+            // 🌟【修正】以前はSRが「7点以上かつドロップ30回以上」、Sが「7点以上」。
+            //   7点を取るにはドロップ30回以上が必須なので、Sは一度も出なかった。
+            //   → 満点(7点)をSにする。A以下は旧版から変更なし。
+            let rank = 'E';
+            if (score >= 7) rank = 'S';
+            else if (score >= 5) rank = 'A';
+            else if (score >= 3) rank = 'B';
+            else if (score === 2) rank = 'C';
+            else if (score === 1) rank = 'D';
+            // 🌟【SR】点数とは切り離した、独立の判定(レア商品)。
+            //   グラフで中古が点でしか出ないやつ。普段は誰も出していないが売れる。
+            //   点数制の中では「中古出品者0人=加点なし」で沈んで拾えなかった。
+            //
+            //   「点になっている」はKeepaの在庫切れ率で見る。平均人数だと
+            //   「ずっと1人が出しっぱなし」と「9割の期間は誰もいない」が
+            //   同じ1人になって区別が付かないため。(-1はデータ不足)
+            //   ※ サーバー(cron)の calcRankFromProduct と1文字も変えないこと
+            const SR_OUT_OF_STOCK_PERCENT = 80; // 中古の90日在庫切れ率がこの%以上
+            const SR_MIN_DROPS90 = 3;           // それでも90日でこの回数以上は売れている
+            const SR_MAX_USED_OFFERS = 2;       // 今の中古出品者がこの人数以下
+            const SR_MIN_CHEAPER_PERCENT = 15;  // (新品ありの時)中古が新品よりこの%以上安い
 
-            // ---------------------------------------------------------
-            // ③【SR】レア商品(グラフで中古が点でしか出ないやつ)
-            //   普段は誰も出していない・出たら売れる・新品よりはっきり安い
-            // ---------------------------------------------------------
-            const isRare = usedOffersAvg <= 1 && drops >= 6 && usedOffers <= 2 &&
-              avgUsed > 0 && avgNewPrice > 0 && avgUsed <= avgNewPrice * 0.85;
-            if (isRare && rank === 'S') rank = 'SR';
+            const oos = (p.stats.outOfStockPercentage90 && typeof p.stats.outOfStockPercentage90[2] === 'number' && p.stats.outOfStockPercentage90[2] >= 0)
+              ? p.stats.outOfStockPercentage90[2] : -1;
+            const newOffers = (p.stats.current && p.stats.current[11] > 0) ? p.stats.current[11] : 0;
+            const newPrice = (p.stats.current && p.stats.current[1] > 0) ? p.stats.current[1] : 0;
+            const hasNew = newOffers > 0 || newPrice > 0;
 
+            const isDotted = oos >= SR_OUT_OF_STOCK_PERCENT && drops >= SR_MIN_DROPS90 && usedOffers <= SR_MAX_USED_OFFERS;
+            // 新品あり → 中古がはっきり安いこと / 新品なし → 価格の条件なし
+            const isRare = isDotted && (hasNew
+              ? (minUsed > 0 && newPrice > 0 && minUsed <= newPrice * (1 - SR_MIN_CHEAPER_PERCENT / 100))
+              : true);
+            if (isRare) rank = 'SR';
             const RANK_COLORS = { SR: '#a855f7', S: '#ff0000', A: '#ff8c00', B: '#32cd32', C: '#1e90ff', D: '#808080', E: '#808080' };
             const rColor = RANK_COLORS[rank] || '#808080';
             window.tmpRank = rank;
-            window.tmpSellDays = sellDays === null ? null : Math.round(sellDays);
             
             // 🌟 サイズ判定はサーバー(cron)と完全に同じルールにする。
             //    Amazon FBAの標準サイズ上限は 45cm × 35cm × 20cm / 9kg。

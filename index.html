@@ -6281,14 +6281,20 @@ async function syncPatrolData() {
           summaryEl.innerHTML = siteNames.map((site) => {
             const p = progress[site];
             const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
+            // 🌟 拡張機能でオフにしているサイトは、消さずに「オフ」と出す。
+            //   拡張がこの周に一度も取りに来ていないサイトがこれにあたる。
+            const isOff = p.off === true;
+            const offTag = isOff
+              ? '<span style="background:#e2e8f0; color:#718096; font-size:10px; font-weight:bold; padding:1px 6px; border-radius:4px; margin-left:6px;">オフ</span>'
+              : '';
             return `
-              <div style="margin-bottom:10px;">
+              <div style="margin-bottom:10px; ${isOff ? 'opacity:0.45;' : ''}">
                 <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; color:#4a5568; margin-bottom:4px;">
-                  <span>${escapeHtml(site)}</span>
-                  <span>${p.done} / ${p.total}件</span>
+                  <span>${escapeHtml(site)}${offTag}</span>
+                  <span>${isOff ? '—' : p.done + ' / ' + p.total + '件'}</span>
                 </div>
                 <div style="background:#edf2f7; border-radius:6px; height:8px; overflow:hidden;">
-                  <div style="background:${pct >= 100 ? '#38a169' : '#3182ce'}; height:100%; width:${pct}%;"></div>
+                  <div style="background:${isOff ? '#cbd5e0' : (pct >= 100 ? '#38a169' : '#3182ce')}; height:100%; width:${isOff ? 0 : pct}%;"></div>
                 </div>
               </div>`;
           }).join("");

@@ -999,7 +999,12 @@
       <div style="background:white; padding:20px; border-radius:8px; width:90%; max-width:300px; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
         <h3 style="margin-top:0; color:#2d3748; font-size:16px; border-bottom:2px solid #edf2f7; padding-bottom:8px; margin-bottom:16px;">✏️ データの編集</h3>
         <input type="hidden" id="edit-purchase-id">
-        
+
+        <div style="margin-bottom:16px;">
+          <label style="font-size:11px; color:#718096; font-weight:bold; display:block; margin-bottom:4px;">検索キーワード(手動調整OK)</label>
+          <input type="text" id="edit-purchase-keyword" style="width:100%; padding:8px; border:1px solid #cbd5e0; border-radius:4px; font-size:13px; font-weight:bold; box-sizing:border-box;">
+          <div style="font-size:10px; color:#a0aec0; margin-top:4px; line-height:1.4;">型番だけだと違う商品を拾います。メーカー名を足してください。<br>巡回URLは次のURL同期で作り直されます。</div>
+        </div>
         <div style="margin-bottom:16px;">
           <label style="font-size:11px; color:#718096; font-weight:bold; display:block; margin-bottom:4px;">仕入日の変更</label>
           <input type="date" id="edit-purchase-date" style="width:100%; padding:8px; border:1px solid #cbd5e0; border-radius:4px; font-size:13px; box-sizing:border-box;">
@@ -4927,6 +4932,11 @@ async function syncPatrolData() {
       document.getElementById('edit-purchase-id').value = id;
       
       const item = globalPurchaseListData.find(i => String(i.id) === String(id));
+      // 🌟 巡回の検索に使っているのはこの欄(型番)。
+      //   自分で見つけた商品を登録すると型番だけになり、メーカー名が入らないので
+      //   関係のない商品まで拾ってしまう。ここで直せるようにする。
+      const kwEl = document.getElementById('edit-purchase-keyword');
+      if (kwEl) kwEl.value = (item && item.model) ? item.model : '';
       if (item && item.purchaseDate && item.purchaseDate !== '-') {
          const d = new Date(item.purchaseDate);
          if (!isNaN(d.getTime())) {
@@ -4944,11 +4954,15 @@ async function syncPatrolData() {
     function closePurchaseEditModal() {
       document.getElementById('purchase-edit-modal').style.display = 'none';
       document.getElementById('edit-purchase-date').value = '';
+      const kwEl = document.getElementById('edit-purchase-keyword');
+      if (kwEl) kwEl.value = '';
     }
     async function savePurchaseEdit() {
       const id = document.getElementById('edit-purchase-id').value;
       const newDate = document.getElementById('edit-purchase-date').value;
-      
+      const kwEl2 = document.getElementById('edit-purchase-keyword');
+      const newKeyword = kwEl2 ? kwEl2.value.trim() : '';
+
       const researcherUrl = AppStorage.get("sh_researcher_url", "");
       let targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
       
@@ -4960,7 +4974,7 @@ async function syncPatrolData() {
       try {
         const res = await fetchWithAuth(targetGasUrl, {
           method: 'POST',
-          body: JSON.stringify({ command: 'updatePurchaseItem', ssUrl: researcherUrl, id: id, purchaseDate: newDate })
+          body: JSON.stringify({ command: 'updatePurchaseItem', ssUrl: researcherUrl, id: id, purchaseDate: newDate, model: newKeyword })
         });
         const json = await res.json();
         if (json.success) {

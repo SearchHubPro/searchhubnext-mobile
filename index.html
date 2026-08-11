@@ -1466,7 +1466,62 @@
         headers['Content-Type'] = 'application/json';
       }
       options.headers = headers;
-      return fetch(url, options);
+      // 🌟【プランの受け皿】サーバーが「このプランでは使えない」と返してきた時に、
+      //   どのボタンから来ても同じ案内が出るように、ここ1か所で受ける。
+      //   res.json() の中身を覗くだけで、返す物は今までと同じ。
+      return fetch(url, options).then(function (res) {
+        try {
+          const origJson = res.json.bind(res);
+          res.json = function () {
+            return origJson().then(function (body) {
+              if (body && body.planLocked === true && body.success === false) {
+                showPlanLockedNotice(body.message, body.requiredPlan);
+              }
+              return body;
+            });
+          };
+        } catch (e) {}
+        return res;
+      });
+    }
+
+    // 🌟 プランの案内。画面の真ん中に1枚出すだけ。
+    //   同じ案内が二重に出ないよう、直後の同じ文言のalertは飲み込む。
+    let planNoticeUntil = 0;
+    const planNoticeNativeAlert = window.alert.bind(window);
+    window.alert = function (msg) {
+      const text = String(msg == null ? "" : msg);
+      if (Date.now() < planNoticeUntil && text.indexOf("プランでご利用いただけます") >= 0) return;
+      return planNoticeNativeAlert(msg);
+    };
+
+    function showPlanLockedNotice(message, requiredPlan) {
+      planNoticeUntil = Date.now() + 2000;
+      const label = requiredPlan === "kiwami" ? "NEXT極" : "NEXT";
+      let el = document.getElementById("plan-locked-modal");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "plan-locked-modal";
+        el.style.cssText = "display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;";
+        el.innerHTML =
+          '<div style="background:#fff; border-radius:12px; padding:24px 20px; width:88%; max-width:340px; box-shadow:0 8px 24px rgba(0,0,0,0.2); text-align:center;">' +
+            '<div style="font-size:34px; margin-bottom:10px;">\u2728</div>' +
+            '<div id="plan-locked-title" style="font-size:15px; font-weight:bold; color:#1a365d; margin-bottom:10px;"></div>' +
+            '<div id="plan-locked-body" style="font-size:12px; color:#4a5568; line-height:1.7; margin-bottom:18px;"></div>' +
+            '<button onclick="closePlanLockedNotice()" style="width:100%; padding:12px; border:none; border-radius:8px; background:#1a365d; color:#fff; font-weight:bold; font-size:13px; cursor:pointer;">閉じる</button>' +
+          '</div>';
+        document.body.appendChild(el);
+      }
+      document.getElementById("plan-locked-title").innerText = label + "プランの機能です";
+      document.getElementById("plan-locked-body").innerText =
+        (message || (label + "プランでご利用いただけます。")) +
+        "\n\nご利用中のプランを変更されたい場合は、お問い合わせください。";
+      el.style.display = "flex";
+    }
+
+    function closePlanLockedNotice() {
+      const el = document.getElementById("plan-locked-modal");
+      if (el) el.style.display = "none";
     }
     const siteKeyMap = {
       'sniper-mercari': 'Sメルカリ', 'sniper-paypay': 'Sヤフフリ', 'sniper-offmall': 'Sオフモ',

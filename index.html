@@ -739,6 +739,17 @@
           <textarea id="info-cond-f" rows="2" style="width:100%; box-sizing:border-box; padding:6px; border:1px solid #cbd5e0; border-radius:6px; font-size:12px;"></textarea>
         </div>
         <div style="background:#f7fafc; border-radius:12px; padding:16px; margin-bottom:16px;">
+          <div style="font-size:13px; font-weight:bold; color:#1a365d; margin-bottom:6px;">🪙 低トークンモード</div>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:#4a5568; font-size:12px;">
+            <input type="checkbox" id="info-low-token" style="width:18px; height:18px;">
+            価格改定でKeepaに問い合わせない
+          </label>
+          <div style="font-size:11px; color:#718096; margin-top:6px; line-height:1.6;">
+            Keepaのトークンを節約したい時に使います。出品中の一覧だけを作り、値段とライバル情報は取りに行きません。<br>
+            値段を確かめたい商品は、価格改定の画面で1件ずつ「詳細確認」を押してください。
+          </div>
+        </div>
+        <div style="background:#f7fafc; border-radius:12px; padding:16px; margin-bottom:16px;">
           <div style="font-size:13px; font-weight:bold; color:#1a365d; margin-bottom:10px;">💳 カード支払い設定（最大5枠）</div>
           <div id="info-cards-container" style="display:flex; flex-direction:column; gap:12px;"></div>
         </div>
@@ -1517,6 +1528,46 @@
         (message || (label + "プランでご利用いただけます。")) +
         "\n\nご利用中のプランを変更されたい場合は、お問い合わせください。";
       el.style.display = "flex";
+    }
+
+
+    // 🌟【低トークンモード】その商品1件だけKeepaに聞く。
+    //   低トークンモードでは裏の価格改定がKeepaを叩かないので、
+    //   値段を触りたい商品だけ、ここでトークンを使う。
+    async function refreshOnePrice(rowId, uniqueId, btnEl) {
+      let targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
+      if (!targetGasUrl) return alert("⚙️設定のURLが未登録です！");
+      const originalHtml = btnEl.innerHTML;
+      btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 確認中...';
+      btnEl.disabled = true;
+      try {
+        const res = await fetchWithAuth(targetGasUrl, {
+          method: 'POST',
+          body: JSON.stringify({ command: 'refreshOnePrice', id: rowId })
+        });
+        const json = await res.json();
+        if (!json.success) {
+          alert("❌ " + (json.message || "取得に失敗しました"));
+          btnEl.innerHTML = originalHtml;
+          btnEl.disabled = false;
+          return;
+        }
+        // 手元の一覧も更新して、その場で見た目を差し替える
+        const item = globalInventoryData.find(i => String(i.id) === String(rowId));
+        if (item) {
+          item.rivals = json.rivals || [];
+          item.fbaFee = json.fbaFee || item.fbaFee;
+          item.feePercent = json.feePercent || item.feePercent;
+          if (json.mine > 0) item.price = json.mine;
+          item.notFetched = false;
+        }
+        if (json.message) alert("⚠️ " + json.message);
+        renderInventoryList();
+      } catch (e) {
+        alert("❌ 通信エラーが発生しました");
+        btnEl.innerHTML = originalHtml;
+        btnEl.disabled = false;
+      }
     }
 
     function closePlanLockedNotice() {
@@ -3355,7 +3406,10 @@ async function syncPatrolData() {
             let imgHtml = '<div style="width:55px; height:55px; background:#f8fafc; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999; border:1px solid #eee;">No Img</div>';
             if (item.img) imgHtml = `<div style="width:55px; height:55px; background:#fff; border:1px solid #eee; border-radius:8px; padding:2px; flex-shrink:0;"><img src="${item.img}" style="width:100%; height:100%; object-fit:contain;"></div>`;
             let rivalsHtml = `<div style="font-size:10px; color:#a0aec0; margin-top:6px; padding:4px;">ライバル情報なし</div>`;
-            if (item.rivals && item.rivals.length > 0) {
+            // 🌟【低トークンモード】まだKeepaに聞いていない行には、1件だけ聞くボタンを出す
+            if (item.notFetched) {
+              rivalsHtml = `<button id="refresh1_${uniqueId}" onclick="refreshOnePrice('${item.id}','${uniqueId}',this)" style="width:100%; margin-top:8px; padding:8px; border:none; border-radius:6px; background:#805ad5; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;"><i class="fas fa-search-dollar"></i> この商品だけ詳細確認</button>`;
+            } else if (item.rivals && item.rivals.length > 0) {
               rivalsHtml = `<select style="width:100%; padding:6px; font-size:11px; font-weight:bold; color:#1a365d; border:1px solid #cbd5e0; border-radius:4px; margin-top:8px; background:#fff; outline:none;">`;
               rivalsHtml += `<option value="" disabled selected>ライバルセラー確認 (${item.rivals.length}件)</option>`;
               item.rivals.forEach(r => { rivalsHtml += `<option>${escapeHtml(r)}</option>`; });
@@ -5466,6 +5520,8 @@ async function syncPatrolData() {
           document.getElementById('info-cond-d').value = data.conditions.d || "";
           document.getElementById('info-cond-e').value = data.conditions.e || "";
           document.getElementById('info-cond-f').value = data.conditions.f || "";
+          const ltEl = document.getElementById('info-low-token');
+          if (ltEl) ltEl.checked = (data.lowTokenMode === true);
           if (data.cards && data.cards.length > 0) {
             data.cards.forEach((card, i) => {
               if (i < 5) {
@@ -5520,6 +5576,7 @@ async function syncPatrolData() {
           body: JSON.stringify({ 
             command: 'saveInfoSettings',
             ssUrl: ssUrl,
+            lowTokenMode: !!(document.getElementById('info-low-token') && document.getElementById('info-low-token').checked),
             suppliers: document.getElementById('info-suppliers').value,
             condC: document.getElementById('info-cond-c').value,
             condD: document.getElementById('info-cond-d').value,

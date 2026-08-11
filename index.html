@@ -2970,7 +2970,6 @@ async function syncPatrolData() {
                   <div style="font-size:13px; font-weight:bold; color:#2c5282;">¥${avgUsed > 0 ? avgUsed.toLocaleString() : '0'}</div>
                   <!-- 🌟 30日平均と比べた値動き。↗上がり ↘下がり →横ばい(±3%) -->
                   <div style="font-size:10px; margin-top:2px;">${trendLabel(priceTrend, priceRecovering)}</div>
-                  ${marketUnclear ? '<div style="font-size:9px; margin-top:2px;">' + unclearBadge(true) + '</div>' : ''}
                 </div>
                 <div class="market-price-card" style="background:#fff5f5; border:1px solid #fed7d7; padding:8px 4px; border-radius:8px; text-align:center;">
                   <div style="font-size:10px; color:#c53030; font-weight:bold; margin-bottom:2px;">中古最安</div>
@@ -3653,7 +3652,7 @@ async function syncPatrolData() {
                   </div>
                   <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold; color:#4a5568; margin-top:4px;">
                     <span>出品者(中古): ${offersLabel(item.usedOffers)}</span>
-                    <span>値動き90日: ${trendLabel(item.priceTrend, item.priceRecovering)}${unclearBadge(item.marketUnclear)}</span>
+                    <span>値動き90日: ${trendLabel(item.priceTrend, item.priceRecovering)}</span>
                   </div>
                 </div>
                 
@@ -4856,9 +4855,7 @@ async function syncPatrolData() {
         if (va !== vb) return va - vb;
         return String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0;
       });
-      // 🌟 どの版が読み込まれているか一目で分かるようにした目印。
-      //    「登録日順 v3」が出ていなければ、まだ古いHTMLが表示されている。
-      countEl.innerText = `リスト: ${filtered.length}件 / 登録日順 v3`;
+      countEl.innerText = `リスト: ${filtered.length}件 / 登録日順`;
       if (filtered.length === 0) {
         resDiv.innerHTML = '<div class="card" style="text-align:center; color:#a0aec0; padding:30px;">条件に合う商品が見つかりません。</div>';
         return;
@@ -4908,7 +4905,7 @@ async function syncPatrolData() {
               <div style="font-size:9px; color:#718096; line-height:1.4;">
                 No.${displayNo}　登録:${rDateStr} 仕入:${pDateStr} 精査:${cDateStr}<br>
                 平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}<br>
-                出品者: ${offersLabel(item.usedOffers)}　値動き: ${trendLabel(item.priceTrend, item.priceRecovering)}${unclearBadge(item.marketUnclear)}
+                出品者: ${offersLabel(item.usedOffers)}　値動き: ${trendLabel(item.priceTrend, item.priceRecovering)}
               </div>
               <!-- 🌟 ランクとサイズは、商品名や型番の長さで位置がずれないよう、
                    ボタンの真上に固定する(ランク=Amazonの上 / サイズ=編集の上)。 -->
@@ -5693,13 +5690,6 @@ async function syncPatrolData() {
     // 🌟 値動き(30日平均が90日平均から何%ずれているか)を、短い印にする。
     //   +3%より上なら右上がり、-3%より下なら右下がり、その間は横ばい。
     //   まだ取れていない行は「-」。
-    // 🌟 相場が読めない商品の印。
-    //   中古の平均が新品以上、または中古の出品者が1人以下のとき。
-    //   その平均は「相場」ではなく1人の言い値なので、鵜呑みにしない。
-    function unclearBadge(flag) {
-      if (!flag) return '';
-      return '<span title="中古の出品者が少ない、または中古が新品より高い。平均価格が相場を表していない可能性があります" style="background:#dd6b20; color:#fff; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:900; margin-left:4px;">⚠️相場不明</span>';
-    }
     //   recovering(今の価格が30日平均以上)なら、下がっていても「下げ止まり」として扱う。
     //   一度だけ段差で下がった商品や、下がったあと戻してきている商品を
     //   「下落中」と誤って読まないため。

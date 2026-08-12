@@ -2800,20 +2800,25 @@ async function syncPatrolData() {
             Quagga.start();
             status.innerText = "バーコード（JANコード）読み取り中...";
           });
+          // 🌟 読み取った番号は、通す時も弾く時も必ず画面に出す。
+          //   黙って捨てると「カメラが反応していない」のか「読めたけど対象外」
+          //   なのかが分からず、いつまでもカメラを向け続けることになっていた。
+          //   受け付ける範囲も広げた。49/45 以外にも、本(978)・輸入品(0や8始まり)・
+          //   8桁のJANがある。13桁と8桁ならKeepaで引けるので、全部通す。
           Quagga.onDetected(function(result) {
-            if (result && result.codeResult && result.codeResult.code) {
-              const code = result.codeResult.code;
-              const matched = code.match(/^(49\d{11}|45\d{11})$/);
-              if (matched) {
-                status.innerText = "🎯 読み取り成功！";
-                document.getElementById('amazonKw').value = matched[1]; 
-                if (navigator.vibrate) navigator.vibrate(200); 
-                Quagga.offDetected();
-                setTimeout(() => {
-                  stopBarcodeScanTest();
-                  runAmazonResearch(); 
-                }, 500);
-              }
+            if (!(result && result.codeResult && result.codeResult.code)) return;
+            const code = String(result.codeResult.code).replace(/[^0-9]/g, "");
+            if (/^\d{13}$/.test(code) || /^\d{8}$/.test(code)) {
+              status.innerText = "🎯 読み取り成功！ " + code;
+              document.getElementById('amazonKw').value = code;
+              if (navigator.vibrate) navigator.vibrate(200);
+              Quagga.offDetected();
+              setTimeout(() => {
+                stopBarcodeScanTest();
+                runAmazonResearch();
+              }, 500);
+            } else {
+              status.innerText = "読み取り: " + code + "（対象外のコードです）";
             }
           });
         }

@@ -3301,7 +3301,30 @@ async function syncPatrolData() {
         window.closeConfirmModal = function() {
           document.getElementById("confirmRegisterModal").style.display = "none";
         }
-        async function fetchSupplierList(preferSite) {
+        // 🌟【仕入先の対応表】巡回の画面で使っている名前と、仕入先の名前をつなぐ。
+        //   スナイパーは頭に S が付き、名前も短縮されているので、
+        //   文字が重なるかどうかで照合すると当たらないものが出る。
+        //   ・Sメルカリ → 「メルカリ」を含むので偶然当たっていた
+        //   ・Sヤフフリ → 仕入先は「ヤフーフリマ」。「ー」が無いので当たらない
+        //   ・Sオフモ   → 仕入先は「オフモール」。頭のSが邪魔で当たらない
+        //   偶然に頼らず、ここで明示的に結ぶ。
+        const SITE_TO_SUPPLIER = {
+          'Sメルカリ': 'メルカリ',
+          'Sヤフフリ': 'ヤフーフリマ',
+          'Sオフモ': 'オフモール',
+          'ヤフフリ': 'ヤフーフリマ',
+          'オフモ': 'オフモール'
+        };
+        function siteToSupplierName(site) {
+          const s = String(site || '').trim();
+          if (!s) return '';
+          if (SITE_TO_SUPPLIER[s]) return SITE_TO_SUPPLIER[s];
+          // 表に無いものは、頭のSだけ外して素の名前として扱う
+          const bare = s.replace(/^S/, '');
+          return SITE_TO_SUPPLIER[bare] || bare;
+        }
+        async function fetchSupplierList(preferSiteRaw) {
+          const preferSite = siteToSupplierName(preferSiteRaw);
           const select = document.getElementById("supplierSelect");
           const ssUrl = AppStorage.get("sh_ssurl", "");
           let targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");

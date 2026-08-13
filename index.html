@@ -1131,6 +1131,7 @@
           </button>
         </div>
         <div style="display:flex; gap:4px;">
+          <button onclick="refreshBuyboxAll()" id="bbRefreshBtn" style="background:#2b6cb0; color:white; border:none; padding:8px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);"><i class="fas fa-cart-shopping"></i> buybox平均を取得</button>
           <button onclick="copyAsins20()" style="background:#f7941d; color:white; border:none; padding:8px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);"><i class="fas fa-copy"></i> ASIN20件コピー</button>
           <button onclick="openSellerCentral20()" style="background:#805ad5; color:white; border:none; padding:8px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);"><i class="fas fa-lock"></i> セラセン確認</button>
           <button onclick="removeCheckedItems()" style="background:#e53e3e; color:white; border:none; padding:8px 12px; border-radius:6px; font-size:11px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);"><i class="fas fa-trash-alt"></i> チェック削除</button>
@@ -2453,7 +2454,11 @@
         '<table class="pl-rows">' +
         '<tr><th>基準</th><th>相場</th><th>仕入上限</th>' + (isAuction ? '' : '<th>利益</th>') + '</tr>' +
         row('90日平均', item.sellPrice, item.buyPrice, item.profitAvg, item.rateAvg) +
-        row('最安値', item.minUsed, item.minBuy, item.profitMin, item.rateMin) +
+        // 🌟 2行目はカートを取った中古の90日平均(buybox平均)。取れていなければ今まで通り最安値。
+        row(item.secondLabel || '最安値',
+            has(item.secondSouba) ? item.secondSouba : item.minUsed,
+            has(item.secondLimit) ? item.secondLimit : item.minBuy,
+            item.profitMin, item.rateMin) +
         '</table>' +
         '<div class="pl-note">' +
         (isAuction
@@ -3122,7 +3127,7 @@ async function syncPatrolData() {
               <div class="calc-box">
                 <div class="calc-row"><span>仕入れ値</span><input type="number" id="bPrice" value="${patrolOrigin && patrolOrigin.price > 0 ? patrolOrigin.price : ''}" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
                 <div class="calc-row"><span>経費/送料</span><input type="number" id="ePrice" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
-                <div class="calc-row"><span>販売価格</span><input type="number" id="sPrice" value="${realUsed > 0 ? realUsed : minUsed}"></div>
+                <div class="calc-row"><span>販売価格</span><input type="number" id="sPrice" value="${realUsed > 0 ? realUsed : (minUsed > 0 ? minUsed : avgUsed)}"></div>
                 <div style="border-top:1px solid #555; margin:12px 0 8px 0; padding-top:8px; font-size:12px; color:#aaa;">
                   <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>販売手数料 (${referralFeePercent}%)</span><span id="resComm">--</span></div>
                   <div style="display:flex; justify-content:space-between;"><span>FBA手数料</span><span>-¥${fbaFee.toLocaleString()}</span></div>
@@ -3199,7 +3204,7 @@ async function syncPatrolData() {
                   sizeTier: window.tmpSizeTier || "",
                   fbaFee: window.tmpFbaFee || 0,
                   referralFeePercent: window.tmpFeePercent || 10,
-                  sellPrice: window.tmpRealUsed || window.tmpAvgUsed || 0,
+                  sellPrice: window.tmpRealUsed || window.tmpMinUsed || window.tmpAvgUsed || 0,
                   minUsedPrice: window.tmpMinUsed || 0,
                   usedOffers: window.tmpUsedOffers,
                   priceTrend: window.tmpPriceTrend,
@@ -3795,7 +3800,7 @@ async function syncPatrolData() {
                 
                 <div style="background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:8px;">
                   <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:11px; font-weight:bold; color:#4a5568; border-bottom:1px dashed #cbd5e0; padding-bottom:4px;">
-                    <span>予定売価: ¥${Number(item.sellPrice).toLocaleString()}</span>
+                    <span>予定売価: ¥${Number(item.sellPrice).toLocaleString()}${Number(item.buyboxAvg) > 0 ? `<span style="color:#2b6cb0;"> / bb ¥${Number(item.buyboxAvg).toLocaleString()}</span>` : ''}</span>
                     <span style="color:#07A27B;">仕入値: ¥${Number(item.buyPrice).toLocaleString()}</span>
                   </div>
                   <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold; color:#4a5568;">
@@ -5970,6 +5975,43 @@ async function syncPatrolData() {
       } catch (e) {
         slot.innerHTML = '<div style="font-size:11px; color:#c53030; padding:10px 0;">通信に失敗しました</div>';
       }
+    }
+    // 🌟【buybox平均をまとめて取得】
+    //   夜のリサーチは buybox を付けずに叩いているので、この列は空のまま来る。
+    //   精査するときに1回押したら、並んでいる商品ぶんをまとめて取り直す。
+    //   1件3トークン。押すまでは1件も使わない。
+    async function refreshBuyboxAll() {
+      if (typeof globalResearcherData === 'undefined' || !globalResearcherData || globalResearcherData.length === 0) {
+        alert('リストが空です');
+        return;
+      }
+      const asins = globalResearcherData.map(x => x.asin).filter(Boolean);
+      if (asins.length === 0) { alert('ASINがありません'); return; }
+      const btn = document.getElementById('bbRefreshBtn');
+      const original = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '取得中… (' + asins.length + '件)'; }
+      try {
+        const res = await fetchWithAuth(getManagerApiUrl(), {
+          method: 'POST',
+          body: JSON.stringify({ command: 'refreshBuybox', asins: asins })
+        });
+        const json = await res.json();
+        if (!json.success) {
+          alert(json.message || 'buybox平均を取得できませんでした');
+        } else {
+          // 取れたぶんを手元のリストにも反映して、そのまま描き直す
+          const map = json.results || {};
+          globalResearcherData.forEach(x => {
+            const v = Number(map[x.asin] || 0);
+            if (v > 0) x.buyboxAvg = v;
+          });
+          renderResearcherList();
+          alert(json.message + (typeof json.tokensLeft === 'number' ? '\n残トークン ' + json.tokensLeft : ''));
+        }
+      } catch (e) {
+        alert('通信に失敗しました');
+      }
+      if (btn) { btn.disabled = false; btn.innerHTML = original; }
     }
     function trendBadge(label) {
       const sub = (t) => '<span style="color:#718096; font-size:9px; margin-left:3px;">' + t + '</span>';

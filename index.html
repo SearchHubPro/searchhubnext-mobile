@@ -147,6 +147,7 @@
     .pl-badge { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; padding: 3px 9px; border-radius: 999px; margin-left: 7px; vertical-align: 2px; }
     .pl-buy { background: #38a169; }
     .pl-half { background: #dd6b20; }
+    .pl-solid { background: #e53e3e; }
     table.pl-rows { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 9px; overflow: hidden; }
     table.pl-rows th { font-size: 10px; color: #718096; font-weight: 700; background: #edf2f7; padding: 5px 6px; text-align: right; }
     table.pl-rows th:first-child { text-align: left; }
@@ -2428,7 +2429,13 @@
       const okMin = has(item.profitMin) && Number(item.profitMin) > 0;
       let badge = '';
       if (!isAuction) {
-        if (okAvg && okMin) badge = '<span class="pl-badge pl-buy">買い</span>';
+        // 🌟 鉄板値の仕入上限に収まっているものは、ただの「買い」ではなく
+        //   赤い「鉄板」にする。出したらすぐ買われる値段で仕入れられる、
+        //   一番間違いのない形なので、一目で分かるようにしておく。
+        const okSolid = Number(item.solidPrice) > 0 && Number(item.solidLimit) > 0
+          && listPrice > 0 && listPrice <= Number(item.solidLimit);
+        if (okSolid) badge = '<span class="pl-badge pl-solid">鉄板</span>';
+        else if (okAvg && okMin) badge = '<span class="pl-badge pl-buy">買い</span>';
         else if (okAvg) badge = '<span class="pl-badge pl-half">平均のみ</span>';
       }
 

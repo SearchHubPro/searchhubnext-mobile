@@ -3679,6 +3679,16 @@ async function syncPatrolData() {
             alert("⚙️ 設定から『ResearcherのシートURL』と『GAS URL』を登録してください！");
             return;
           }
+          // 🌟【温め】この画面ではグラフを押した時にmanagerを呼ぶ。
+          //   関数が寝ていると最初の1回だけ立ち上がりで待たされるので、
+          //   リストを読みに行くのと同時に空打ちして起こしておく。
+          //   Keepaは叩かないのでトークンは使わない。失敗しても無視でよい。
+          try {
+            fetchWithAuth(getManagerApiUrl(), {
+              method: 'POST',
+              body: JSON.stringify({ command: 'ping' })
+            }).catch(function () {});
+          } catch (e) {}
           try {
             const res = await fetchWithAuth(targetGasUrl, { // 👈 targetGasUrl に戻した！
               method: 'POST',

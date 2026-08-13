@@ -3100,9 +3100,9 @@ async function syncPatrolData() {
               </div>
               <div class="market-price-container" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:12px;">
                 <div class="market-price-card" style="background:#ebf8ff; border:1px solid #bee3f8; padding:8px 4px; border-radius:8px; text-align:center;">
-                  <div style="font-size:10px; color:#2b6cb0; font-weight:bold; margin-bottom:2px;">${realUsed > 0 ? '実勢(90)' : '平均(90)'}</div>
-                  <div style="font-size:13px; font-weight:bold; color:#2c5282;">¥${(realUsed > 0 ? realUsed : avgUsed) > 0 ? (realUsed > 0 ? realUsed : avgUsed).toLocaleString() : '0'}</div>
-                  ${realUsed > 0 ? `<div style="font-size:9px; color:#718096;">最安平均 ¥${avgUsed.toLocaleString()}</div>` : ''}
+                  <div style="font-size:10px; color:#2b6cb0; font-weight:bold; margin-bottom:2px;">buybox平均</div>
+                  <div style="font-size:13px; font-weight:bold; color:#2c5282;">${realUsed > 0 ? '¥' + realUsed.toLocaleString() : '<span style="color:#a0aec0;">-</span>'}</div>
+                  <div style="font-size:9px; color:#718096;">90日平均 ¥${avgUsed > 0 ? avgUsed.toLocaleString() : '0'}</div>
                   <!-- 🌟 30日平均と比べた値動き。↗上がり ↘下がり →横ばい(±3%) -->
                   <div style="font-size:10px; margin-top:2px;">${trendBadge(trendNow)}</div>
                 </div>

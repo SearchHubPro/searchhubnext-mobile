@@ -6594,7 +6594,12 @@ async function syncPatrolData() {
         const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "syncPatrolTargets", scope: currentProgressScope }) });
         const result = await res.json();
         if (result.success) {
-          showToast("✅ " + label + "のURL同期が終わりました(追加 " + (result.created || 0) + "件 / 更新 " + (result.urlUpdated || 0) + "件 / 削除 " + (result.deactivated || 0) + "件)");
+          const remain = Number(result.urlRemaining) || 0;
+          if (remain > 0) {
+            showToast("⏳ 途中まで進みました(追加 " + (result.created || 0) + "件 / 更新 " + (result.urlUpdated || 0) + "件 / 残り " + remain + "件)。もう一度押すと続きから進みます");
+          } else {
+            showToast("✅ " + label + "のURL同期が終わりました(追加 " + (result.created || 0) + "件 / 更新 " + (result.urlUpdated || 0) + "件 / 削除 " + (result.deactivated || 0) + "件)");
+          }
           loadPatrolProgress();
         } else {
           showToast("⚠️ 同期に失敗しました " + (result.message || ""));

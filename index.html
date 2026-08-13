@@ -2984,9 +2984,9 @@ async function syncPatrolData() {
             //   「ずっと1人が出しっぱなし」と「9割の期間は誰もいない」が
             //   同じ1人になって区別が付かないため。(-1はデータ不足)
             //   ※ サーバー(cron)の calcRankFromProduct と1文字も変えないこと
-            const SR_OUT_OF_STOCK_PERCENT = 80; // 中古の90日在庫切れ率がこの%以上
+            const SR_OUT_OF_STOCK_PERCENT = 90; // 中古の90日在庫切れ率がこの%以上
             const SR_MIN_DROPS90 = 3;           // それでも90日でこの回数以上は売れている
-            const SR_MAX_USED_OFFERS = 2;       // 今の中古出品者がこの人数以下
+            const SR_MAX_USED_OFFERS = 1;       // 今の中古出品者がこの人数以下
             const SR_MIN_CHEAPER_PERCENT = 15;  // (新品ありの時)中古が新品よりこの%以上安い
 
             const oos = (p.stats.outOfStockPercentage90 && typeof p.stats.outOfStockPercentage90[2] === 'number' && p.stats.outOfStockPercentage90[2] >= 0)
@@ -2997,10 +2997,23 @@ async function syncPatrolData() {
 
             const isDotted = oos >= SR_OUT_OF_STOCK_PERCENT && drops >= SR_MIN_DROPS90 && usedOffers <= SR_MAX_USED_OFFERS;
             // 新品あり → 中古がはっきり安いこと / 新品なし → 価格の条件なし
+            // 🌟【修正】値段の比較に「今の中古最安」を使っていたのをやめ、
+            //   「中古の90日平均」に変えた。SRが狙っているのは普段は誰も中古を
+            //   出していない商品なので、一番SRらしい商品ほど今の中古出品者が0人になる。
+            //   0人だと今の中古最安が0円になり、minUsed > 0 の時点で必ず落ちていた。
+            //   出ていない今の値段ではなく、出たときの相場で比べるのが正しい。
             const isRare = isDotted && (hasNew
-              ? (minUsed > 0 && newPrice > 0 && minUsed <= newPrice * (1 - SR_MIN_CHEAPER_PERCENT / 100))
+              ? (avgUsed > 0 && newPrice > 0 && avgUsed <= newPrice * (1 - SR_MIN_CHEAPER_PERCENT / 100))
               : true);
+            // 🌟 rank は今まで通りSRで上書きする(「残すランク」の設定を壊さないため)。
+            //   点数側のランクは baseRank として別に持ち、画面では並べて出す。
+            const baseRank = rank;
             if (isRare) rank = 'SR';
+            window.tmpBaseRank = baseRank;
+            window.tmpIsRare = isRare;
+            // 🌟【トレンド】チャートの向き。Keepaへの問い合わせは増えない。
+            const trendNow = calcTrendLabelFromStats(p);
+            window.tmpTrendLabel = trendNow;
             const RANK_COLORS = { SR: '#a855f7', S: '#ff0000', A: '#ff8c00', B: '#32cd32', C: '#1e90ff', D: '#808080', E: '#808080' };
             const rColor = RANK_COLORS[rank] || '#808080';
             window.tmpRank = rank;
@@ -3050,7 +3063,7 @@ async function syncPatrolData() {
                     <i class="far fa-copy text-gray-400 text-[12px] ml-1" id="copyIcon"></i>
                   </div>
                   <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                    <span class="badge" style="border:1px solid ${rColor}; color:${rColor}; padding:3px 8px;">${rank}ランク</span>
+                    <span class="badge" style="border:1px solid ${rColor}; color:${rColor}; padding:3px 8px;">${rank}ランク${isRare && baseRank ? '<span style="opacity:.65;">/' + baseRank + '</span>' : ''}</span>
                     <span class="badge" style="background:${sizeTier==='大型'?'#e53e3e':'#07A27B'}; color:white; padding:3px 8px;">${sizeTier}</span>
                     <a href="https://sellercentral.amazon.co.jp/product-search/search?q=${asin}" target="_blank" style="background:#e53e3e; color:#fff; text-decoration:none; padding:3px 8px; border-radius:4px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.15);">規制確認</a>
                     <button onclick="openView('view-history'); document.getElementById('historyAsin').value='${asin}'; searchHistory();" style="background:#4285f4; color:white; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:10px; margin-left:4px; cursor:pointer;"><i class="fas fa-history"></i> 販売履歴リサーチ</button>
@@ -3075,7 +3088,7 @@ async function syncPatrolData() {
                   <div style="font-size:10px; color:#2b6cb0; font-weight:bold; margin-bottom:2px;">平均(90)</div>
                   <div style="font-size:13px; font-weight:bold; color:#2c5282;">¥${avgUsed > 0 ? avgUsed.toLocaleString() : '0'}</div>
                   <!-- 🌟 30日平均と比べた値動き。↗上がり ↘下がり →横ばい(±3%) -->
-                  <div style="font-size:10px; margin-top:2px;">${trendLabel(priceTrend, priceRecovering)}</div>
+                  <div style="font-size:10px; margin-top:2px;">${trendBadge(trendNow)}</div>
                 </div>
                 <div class="market-price-card" style="background:#fff5f5; border:1px solid #fed7d7; padding:8px 4px; border-radius:8px; text-align:center;">
                   <div style="font-size:10px; color:#c53030; font-weight:bold; margin-bottom:2px;">中古最安</div>
@@ -3175,6 +3188,8 @@ async function syncPatrolData() {
                   usedOffers: window.tmpUsedOffers,
                   priceTrend: window.tmpPriceTrend,
                   priceRecovering: window.tmpPriceRecovering === true,
+                  trendLabel: window.tmpTrendLabel || null,
+                  baseRank: window.tmpBaseRank || "",
                   marketUnclear: window.tmpMarketUnclear === true,
                   imageUrl: window.tmpImg || ""
                 }
@@ -3736,7 +3751,7 @@ async function syncPatrolData() {
               <div style="flex:1; min-width:0;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                   <span style="font-size:11px; font-weight:bold; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px;">${item.asin}</span>
-                  <span style="font-size:11px; font-weight:bold; color:${rankColor}; border:1px solid ${rankColor}; padding:1px 6px; border-radius:4px;">${rankText}ランク</span>
+                  <span style="font-size:11px; font-weight:bold; color:${rankColor}; border:1px solid ${rankColor}; padding:1px 6px; border-radius:4px;">${rankText}ランク${rankText === 'SR' && item.baseRank ? '<span style="opacity:.65;">/' + escapeHtml(item.baseRank) + '</span>' : ''}</span>
                 </div>
                 
                 <div style="display:flex; gap:10px; margin-bottom:8px;">
@@ -3761,7 +3776,7 @@ async function syncPatrolData() {
                   </div>
                   <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold; color:#4a5568; margin-top:4px;">
                     <span>出品者(中古): ${offersLabel(item.usedOffers)}</span>
-                    <span>値動き90日: ${trendLabel(item.priceTrend, item.priceRecovering)}</span>
+                    <span>値動き: ${trendCell(item)}</span>
                   </div>
                 </div>
                 
@@ -5014,7 +5029,7 @@ async function syncPatrolData() {
               <div style="font-size:9px; color:#718096; line-height:1.4;">
                 No.${displayNo}　登録:${rDateStr} 仕入:${pDateStr} 精査:${cDateStr}<br>
                 平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}<br>
-                出品者: ${offersLabel(item.usedOffers)}　値動き: ${trendLabel(item.priceTrend, item.priceRecovering)}
+                出品者: ${offersLabel(item.usedOffers)}　値動き: ${trendCell(item)}
               </div>
               <!-- 🌟 ランクとサイズは、商品名や型番の長さで位置がずれないよう、
                    ボタンの真上に固定する(ランク=Amazonの上 / サイズ=編集の上)。 -->
@@ -5834,6 +5849,51 @@ async function syncPatrolData() {
         + '</div>';
     }
 
+    // 🌟【トレンド】チャートの向きを、上昇・下降・もみもみ・レアの4つに分ける。
+    //   株のチャートで使う移動平均の並び順と同じ考え方。期間の違う平均を
+    //   短い順に並べて、順番が揃っていればその期間ずっと同じ方向へ動いていた
+    //   ことになる。今 < 30日 < 90日 < 180日 なら下降、逆なら上昇、崩れて
+    //   いればもみもみ。
+    //   30日平均は90日平均の中に含まれるので「何%動いたか」は薄まって出るが、
+    //   「順番」は重なりの影響を受けない。だから一度沈んで戻した商品や
+    //   品薄で跳ねた商品は、必ずどこかで順番が壊れてもみもみになる。
+    //   Keepaは avg30/avg90/avg180 を stats の指定日数に関係なく必ず返すので、
+    //   問い合わせもトークンも1つも増えない。
+    //   中古が歯抜けの商品はそもそも線が繋がっておらずトレンドという見方が
+    //   合わないので「レア」と出す(悪い商品ではなくSRの本命)。
+    //   ※ サーバー(cron)の calcPriceTrendLabel と1文字も変えないこと
+    const TREND_MIN_SPREAD_PERCENT = 5;
+    const TREND_RARE_OOS_PERCENT = 90;
+    function calcTrendLabelFromStats(p) {
+      const stats = (p && p.stats) || {};
+      const gPct = (arr, i) => (Array.isArray(arr) && typeof arr[i] === 'number' && arr[i] >= 0) ? arr[i] : -1;
+      const gNum = (arr, i) => (Array.isArray(arr) && typeof arr[i] === 'number' && arr[i] > 0) ? arr[i] : 0;
+      const oos90 = gPct(stats.outOfStockPercentage90, 2);
+      if (oos90 >= TREND_RARE_OOS_PERCENT) return 'レア';
+      const now = gNum(stats.current, 2);
+      const avg30 = gNum(stats.avg30, 2);
+      const avg90 = gNum(stats.avg90, 2);
+      const avg180 = gNum(stats.avg180, 2);
+      if (!(now > 0) || !(avg30 > 0) || !(avg90 > 0) || !(avg180 > 0)) return null;
+      const spread = Math.abs(now - avg180) / avg180 * 100;
+      if (spread < TREND_MIN_SPREAD_PERCENT) return 'もみもみ';
+      if (now < avg30 && avg30 < avg90 && avg90 < avg180) return '下降';
+      if (now > avg30 && avg30 > avg90 && avg90 > avg180) return '上昇';
+      return 'もみもみ';
+    }
+    // 🌟 トレンドを色付きの短い文字にする。まだ保存されていない古い行は '-'。
+    function trendBadge(label) {
+      if (label === '上昇') return '<span style="color:#2f855a; font-weight:900;">↗ 上昇</span>';
+      if (label === '下降') return '<span style="color:#c53030; font-weight:900;">↘ 下降</span>';
+      if (label === 'もみもみ') return '<span style="color:#4a5568; font-weight:900;">→ もみもみ</span>';
+      if (label === 'レア') return '<span style="color:#a855f7; font-weight:900;">★ レア</span>';
+      return '<span style="color:#a0aec0;">-</span>';
+    }
+    // 🌟 行にトレンドが保存されていれば新しい判定、無ければ古い%表示を出す。
+    function trendCell(item) {
+      if (item && item.trendLabel) return trendBadge(item.trendLabel);
+      return trendLabel(item ? item.priceTrend : null, item ? item.priceRecovering : false);
+    }
     function trendLabel(v, recovering) {
       if (v === null || v === undefined || v === "") return '<span style="color:#a0aec0;">-</span>';
       const n = Number(v);

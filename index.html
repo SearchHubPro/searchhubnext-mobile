@@ -658,10 +658,12 @@
           <input type="number" id="rs-maxUrls" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:12px;">
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">✅ ヤフオク合格ライン(件数以上)</label>
           <input type="number" id="rs-minRecordCount" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:16px;">
-          <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">📉 下落商品削除(%以上下がっていたら対象外)</label>
-          <input type="number" id="rs-dropPriceDown" placeholder="10" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:4px;">
+          <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">📉 下落商品削除(0=しない / 1=する)</label>
+          <input type="number" id="rs-dropPriceDown" placeholder="1" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:4px;">
           <div style="font-size:11px; color:#718096; margin-bottom:12px; line-height:1.6;">
-            90日平均に対して直近30日平均がこの割合以上下がっている商品を、自動リサーチの対象から外します。0にすると働きません。
+            値下がりが続いている商品を、自動リサーチの対象から外します。<b>0にすると働きません。1以上ならすべて同じ動き</b>で、数字の大きさは関係ありません。<br>
+            中古の30日平均・90日平均・180日平均がこの順に下がっていて、今の中古最安もまだ下にある商品（＝下降トレンドの継続中）と、安い出品が売り切れて高い1件だけが残っている商品（＝品薄で跳ね）を落とします。<br>
+            下げ止まって戻してきている商品、中古がめったに出ない商品、判定できない商品は落としません。
           </div>
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">👥 飽和商品削除(中古の出品者が◯人以上)</label>
           <input type="number" id="rs-dropSaturated" placeholder="20" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:4px;">
@@ -6426,7 +6428,11 @@ async function syncPatrolData() {
         document.getElementById("rs-excludeBrands").value = d.exclude_brands || "";
         document.getElementById("rs-maxUrls").value = d.max_urls_per_run ?? 3;
         document.getElementById("rs-minRecordCount").value = d.min_record_count ?? 3;
-        document.getElementById("rs-dropPriceDown").value = d.drop_price_down_percent ?? 10;
+        // 🌟 この欄は「%」ではなくスイッチになった(0=しない / 1以上=する)。
+        //   以前の設定が10などで入っている人も動きは同じなので、
+        //   画面には1と出して、欄の意味と表示を合わせる。
+        document.getElementById("rs-dropPriceDown").value =
+          (Number(d.drop_price_down_percent ?? 1) > 0) ? 1 : 0;
         document.getElementById("rs-dropSaturated").value = d.drop_saturated_offers ?? 20;
         renderRsCategoryGrid(d.target_category_ids || []);
         document.getElementById("rs-batchSize").value = d.batch_size ?? 20;

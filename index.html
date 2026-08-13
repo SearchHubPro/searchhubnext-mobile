@@ -645,10 +645,12 @@
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">💴 仕入値基準設定</label>
           <select id="rs-watcherMode" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:4px;">
             <option value="A">【A】90日平均から仕入値を出す</option>
-            <option value="B">【B】最安値から仕入値を出す</option>
+            <option value="B">【B】buybox平均から仕入値を出す</option>
           </select>
           <div style="font-size:11px; color:#718096; margin-bottom:12px; line-height:1.6;">
-            ウォッチャー・スナイパー両方の検索URLで使う仕入れ値の基準です。
+            ウォッチャー・スナイパー両方の検索URLで使う仕入れ値の基準です。<br>
+            <b>【B】はカートを取った中古の90日平均（buybox平均）</b>から出します。実際に売れている値段なので、誰かの言い値に引っ張られません。<br>
+            buybox平均が取れない商品（カートを取れる中古が90日で1件も無かった等）だけ、これまでのBと同じく<b>最安値</b>から出します。ただし最安値が90日平均より高いときは90日平均に戻します。
           </div>
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">🚫 除外ワード(URL末尾用)</label>
           <textarea id="rs-excludeWords" rows="2" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:12px; margin-bottom:12px;"></textarea>

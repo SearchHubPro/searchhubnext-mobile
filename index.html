@@ -5063,7 +5063,7 @@ async function syncPatrolData() {
             <div style="display:flex; justify-content:space-between; align-items:flex-end;">
               <div style="font-size:9px; color:#718096; line-height:1.4;">
                 No.${displayNo}　登録:${rDateStr} 仕入:${pDateStr} 精査:${cDateStr}<br>
-                平均¥${sellPrice.toLocaleString()} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}<br>
+                平均¥${sellPrice.toLocaleString()}${Number(item.buyboxAvg) > 0 ? ` / <span style="color:#2b6cb0;">bb¥${Number(item.buyboxAvg).toLocaleString()}</span>` : ''} / 最安¥${minUsed.toLocaleString()} / FBA¥${fbaFee.toLocaleString()}<br>
                 出品者: ${offersLabel(item.usedOffers)}　値動き: ${trendCell(item)}
               </div>
               <!-- 🌟 ランクとサイズは、商品名や型番の長さで位置がずれないよう、

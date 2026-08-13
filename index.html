@@ -3206,7 +3206,10 @@ async function syncPatrolData() {
                   sizeTier: window.tmpSizeTier || "",
                   fbaFee: window.tmpFbaFee || 0,
                   referralFeePercent: window.tmpFeePercent || 10,
-                  sellPrice: window.tmpRealUsed || window.tmpMinUsed || window.tmpAvgUsed || 0,
+                  // 🌟 予定売価は今まで通り90日平均。URL同期のAがここから作った
+                  //   仕入上限を見ているので、buybox平均を混ぜない。
+                  sellPrice: window.tmpAvgUsed || 0,
+                  buyboxAvg: window.tmpRealUsed || 0,
                   minUsedPrice: window.tmpMinUsed || 0,
                   usedOffers: window.tmpUsedOffers,
                   priceTrend: window.tmpPriceTrend,

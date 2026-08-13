@@ -2923,6 +2923,19 @@ async function syncPatrolData() {
             // 🌟 仕入れリストへ追加する時に使う値も覚えておく
             window.tmpAsin = asin;
             window.tmpAvgUsed = avgUsed;
+            // 🌟【実勢】過去90日で「カートを取った中古」の平均。
+            //   中古最安の平均は、売れない高値ほど長く居座るぶん強く効いてしまい、
+            //   実際に売れる値段より高く出る。カートを取った中古の平均なら、
+            //   Amazonが客に出した=買われうる値段だけの平均になる。
+            //   (実測: BOSS GE-7 は 最安の90日平均13,741円・今の中古最安14,346円に対し、
+            //    カートを取った中古の平均は11,858円。14%も違った。しかも14,346円を
+            //    出しているセラーはカートを2.3%しか取れていない自己発送だった)
+            //   buybox=1 を付けて取ると avg90 の32番目に入ってくる。
+            //   一発解析はもともと buybox 付きで叩いているので、問い合わせもトークンも増えない。
+            //   カートを取れる中古が90日間1件も無かった商品は取れないので、その時は今まで通り。
+            //   ※ ランク判定・値動き判定には使わない(サーバーと1文字も変えないため)。
+            const realUsed = (p.stats.avg90 && p.stats.avg90[32] > 0) ? p.stats.avg90[32] : 0;
+            window.tmpRealUsed = realUsed;
             window.tmpMinUsed = minUsed;
             window.tmpUsedOffers = usedOffers;
             // 🌟 値動き:30日平均が90日平均から何%ずれているか(+なら右上がり)
@@ -3087,8 +3100,9 @@ async function syncPatrolData() {
               </div>
               <div class="market-price-container" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:12px;">
                 <div class="market-price-card" style="background:#ebf8ff; border:1px solid #bee3f8; padding:8px 4px; border-radius:8px; text-align:center;">
-                  <div style="font-size:10px; color:#2b6cb0; font-weight:bold; margin-bottom:2px;">平均(90)</div>
-                  <div style="font-size:13px; font-weight:bold; color:#2c5282;">¥${avgUsed > 0 ? avgUsed.toLocaleString() : '0'}</div>
+                  <div style="font-size:10px; color:#2b6cb0; font-weight:bold; margin-bottom:2px;">${realUsed > 0 ? '実勢(90)' : '平均(90)'}</div>
+                  <div style="font-size:13px; font-weight:bold; color:#2c5282;">¥${(realUsed > 0 ? realUsed : avgUsed) > 0 ? (realUsed > 0 ? realUsed : avgUsed).toLocaleString() : '0'}</div>
+                  ${realUsed > 0 ? `<div style="font-size:9px; color:#718096;">最安平均 ¥${avgUsed.toLocaleString()}</div>` : ''}
                   <!-- 🌟 30日平均と比べた値動き。↗上がり ↘下がり →横ばい(±3%) -->
                   <div style="font-size:10px; margin-top:2px;">${trendBadge(trendNow)}</div>
                 </div>
@@ -3108,7 +3122,7 @@ async function syncPatrolData() {
               <div class="calc-box">
                 <div class="calc-row"><span>仕入れ値</span><input type="number" id="bPrice" value="${patrolOrigin && patrolOrigin.price > 0 ? patrolOrigin.price : ''}" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
                 <div class="calc-row"><span>経費/送料</span><input type="number" id="ePrice" placeholder="0" onfocus="this.placeholder=''" onblur="this.placeholder='0'"></div>
-                <div class="calc-row"><span>販売価格</span><input type="number" id="sPrice" value="${minUsed}"></div>
+                <div class="calc-row"><span>販売価格</span><input type="number" id="sPrice" value="${realUsed > 0 ? realUsed : minUsed}"></div>
                 <div style="border-top:1px solid #555; margin:12px 0 8px 0; padding-top:8px; font-size:12px; color:#aaa;">
                   <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>販売手数料 (${referralFeePercent}%)</span><span id="resComm">--</span></div>
                   <div style="display:flex; justify-content:space-between;"><span>FBA手数料</span><span>-¥${fbaFee.toLocaleString()}</span></div>
@@ -3185,7 +3199,7 @@ async function syncPatrolData() {
                   sizeTier: window.tmpSizeTier || "",
                   fbaFee: window.tmpFbaFee || 0,
                   referralFeePercent: window.tmpFeePercent || 10,
-                  sellPrice: window.tmpAvgUsed || 0,
+                  sellPrice: window.tmpRealUsed || window.tmpAvgUsed || 0,
                   minUsedPrice: window.tmpMinUsed || 0,
                   usedOffers: window.tmpUsedOffers,
                   priceTrend: window.tmpPriceTrend,

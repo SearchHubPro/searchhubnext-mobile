@@ -696,6 +696,7 @@
           <input type="number" id="rs-fbaFeeDefault" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; margin-bottom:12px;">
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:6px;">残すランク</label>
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <label style="font-size:12px;"><input type="checkbox" class="rs-keepRank" value="SSR"> SSR</label>
             <label style="font-size:12px;"><input type="checkbox" class="rs-keepRank" value="SR"> SR</label>
             <label style="font-size:12px;"><input type="checkbox" class="rs-keepRank" value="S"> S</label>
             <label style="font-size:12px;"><input type="checkbox" class="rs-keepRank" value="A"> A</label>
@@ -3021,7 +3022,7 @@ async function syncPatrolData() {
             //   「ずっと1人が出しっぱなし」と「9割の期間は誰もいない」が
             //   同じ1人になって区別が付かないため。(-1はデータ不足)
             //   ※ サーバー(cron)の calcRankFromProduct と1文字も変えないこと
-            const SR_OUT_OF_STOCK_PERCENT = 90; // 中古の90日在庫切れ率がこの%以上
+            const SR_OUT_OF_STOCK_PERCENT = 70; // 中古の90日在庫切れ率がこの%以上
             const SR_MIN_DROPS90 = 3;           // それでも90日でこの回数以上は売れている
             const SR_MAX_USED_OFFERS = 1;       // 今の中古出品者がこの人数以下
             const SR_MIN_CHEAPER_PERCENT = 15;  // (新品ありの時)中古が新品よりこの%以上安い
@@ -3045,13 +3046,17 @@ async function syncPatrolData() {
             // 🌟 rank は今まで通りSRで上書きする(「残すランク」の設定を壊さないため)。
             //   点数側のランクは baseRank として別に持ち、画面では並べて出す。
             const baseRank = rank;
-            if (isRare) rank = 'SR';
+            // 🌟【SR と SSR】新品があるかどうかで分ける。
+            //   新品なしは、その90日のドロップを満たしたのが中古しかありえない。
+            //   ドロップ＝中古が売れた回数として読める。しかも新品という
+            //   価格の天井が無いので上は青天井。こちらを SSR とする。
+            if (isRare) rank = hasNew ? 'SR' : 'SSR';
             window.tmpBaseRank = baseRank;
             window.tmpIsRare = isRare;
             // 🌟【トレンド】チャートの向き。Keepaへの問い合わせは増えない。
             const trendNow = calcTrendLabelFromStats(p);
             window.tmpTrendLabel = trendNow;
-            const RANK_COLORS = { SR: '#a855f7', S: '#ff0000', A: '#ff8c00', B: '#32cd32', C: '#1e90ff', D: '#808080', E: '#808080' };
+            const RANK_COLORS = { SSR: '#d69e2e', SR: '#a855f7', S: '#ff0000', A: '#ff8c00', B: '#32cd32', C: '#1e90ff', D: '#808080', E: '#808080' };
             const rColor = RANK_COLORS[rank] || '#808080';
             window.tmpRank = rank;
             
@@ -3100,7 +3105,7 @@ async function syncPatrolData() {
                     <i class="far fa-copy text-gray-400 text-[12px] ml-1" id="copyIcon"></i>
                   </div>
                   <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                    <span class="badge" style="border:1px solid ${rColor}; color:${rColor}; padding:3px 8px;">${rank}ランク${isRare && baseRank ? '<span style="opacity:.65;">/' + baseRank + '</span>' : ''}</span>
+                    <span class="badge" style="border:1px solid ${rColor}; color:${rColor}; padding:3px 8px;">${rank}ランク</span>
                     <span class="badge" style="background:${sizeTier==='大型'?'#e53e3e':'#07A27B'}; color:white; padding:3px 8px;">${sizeTier}</span>
                     <a href="https://sellercentral.amazon.co.jp/product-search/search?q=${asin}" target="_blank" style="background:#e53e3e; color:#fff; text-decoration:none; padding:3px 8px; border-radius:4px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.15);">規制確認</a>
                     <button onclick="openView('view-history'); document.getElementById('historyAsin').value='${asin}'; searchHistory();" style="background:#4285f4; color:white; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:10px; margin-left:4px; cursor:pointer;"><i class="fas fa-history"></i> 販売履歴リサーチ</button>
@@ -3812,7 +3817,8 @@ async function syncPatrolData() {
             // 🌟 ランク色分け
             let rankColor = '#000000';
             let rankText = item.rank ? item.rank.toString().toUpperCase() : '';
-            if (rankText === 'SR') rankColor = '#a855f7';
+            if (rankText === 'SSR') rankColor = '#d69e2e';
+            else if (rankText === 'SR') rankColor = '#a855f7';
             else if (rankText === 'S') rankColor = '#e53e3e';
             else if (rankText === 'A') rankColor = '#f7941d';
             else if (rankText === 'B') rankColor = '#3182ce';
@@ -3827,7 +3833,7 @@ async function syncPatrolData() {
               <div style="flex:1; min-width:0;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                   <span style="font-size:11px; font-weight:bold; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px;">${item.asin}</span>
-                  <span style="font-size:11px; font-weight:bold; color:${rankColor}; border:1px solid ${rankColor}; padding:1px 6px; border-radius:4px;">${rankText}ランク${rankText === 'SR' && item.baseRank ? '<span style="opacity:.65;">/' + escapeHtml(item.baseRank) + '</span>' : ''}</span>
+                  <span style="font-size:11px; font-weight:bold; color:${rankColor}; border:1px solid ${rankColor}; padding:1px 6px; border-radius:4px;">${rankText}ランク</span>
                 </div>
                 
                 <div style="display:flex; gap:10px; margin-bottom:8px;">
@@ -5072,7 +5078,8 @@ async function syncPatrolData() {
         
         let rankRaw = escapeHtml(item.rank || '-');
         let rankColor = '#4a5568';
-        if (rankRaw.includes('SR')) rankColor = '#805ad5';
+        if (rankRaw.includes('SSR')) rankColor = '#d69e2e';
+        else if (rankRaw.includes('SR')) rankColor = '#805ad5';
         else if (rankRaw.includes('S')) rankColor = '#e53e3e';
         else if (rankRaw.includes('A')) rankColor = '#dd6b20';
         else if (rankRaw.includes('B')) rankColor = '#38a169';
@@ -5950,7 +5957,9 @@ async function syncPatrolData() {
     //   読めないという意味。売れているのに中古が出ていない商品がここに
     //   入るので、空欄にして素通りさせない。
     const TREND_MIN_SPREAD_PERCENT = 5;
-    const TREND_RARE_OOS_PERCENT = 90;
+    // 🌟 SR/SSRの線(SR_OUT_OF_STOCK_PERCENT)と同じ数字にしておくこと。
+    //   ここだけ違うと「ランクはSRなのに値動きは要確認」というちぐはぐになる。
+    const TREND_RARE_OOS_PERCENT = 70;
     const TREND_MAX_OOS_PERCENT = 50;
     const TREND_SPIKE_MULTIPLIER = 1.3;
     function calcTrendLabelFromStats(p) {
@@ -6538,7 +6547,7 @@ async function syncPatrolData() {
         document.getElementById("rs-priceMin").value = d.price_min ?? "";
         document.getElementById("rs-priceMax").value = d.price_max ?? "";
         document.getElementById("rs-fbaFeeDefault").value = d.fba_fee_default ?? "";
-        const keepRanks = d.keep_ranks || ["SR", "S", "A", "B"];
+        const keepRanks = d.keep_ranks || ["SSR", "SR", "S", "A", "B"];
         document.querySelectorAll(".rs-keepRank").forEach(cb => { cb.checked = keepRanks.includes(cb.value); });
         document.getElementById("rs-minReview").value = d.min_review_count ?? 50;
         document.getElementById("rs-maxReview").value = d.max_review_count ?? 500;

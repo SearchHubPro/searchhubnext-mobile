@@ -748,13 +748,16 @@
         </div>
         <div style="background:#f7fafc; border-radius:12px; padding:16px; margin-bottom:16px;">
           <div style="font-size:13px; font-weight:bold; color:#1a365d; margin-bottom:6px;">🪙 低トークンモード</div>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:#4a5568; font-size:12px;">
-            <input type="checkbox" id="info-low-token" style="width:18px; height:18px;">
-            価格改定でKeepaに問い合わせない
-          </label>
-          <div style="font-size:11px; color:#718096; margin-top:6px; line-height:1.6;">
-            Keepaのトークンを節約したい時に使います。出品中の一覧だけを作り、値段とライバル情報は取りに行きません。<br>
-            値段を確かめたい商品は、価格改定の画面で1件ずつ「詳細確認」を押してください。
+          <select id="info-low-token-scope" style="width:100%; padding:10px; border:1px solid #cbd5e0; border-radius:6px; font-size:13px; font-weight:bold; background:#fff;">
+            <option value="off">使わない（どちらも普通に取りにいく）</option>
+            <option value="price">価格改定だけ軽くする</option>
+            <option value="research">Amazonリサーチだけ軽くする</option>
+            <option value="both">両方軽くする</option>
+          </select>
+          <div style="font-size:11px; color:#718096; margin-top:8px; line-height:1.7;">
+            <b>価格改定だけ</b>…出品中の一覧だけを作り、値段とライバル情報は取りに行きません。値段を確かめたい商品は、価格改定の画面で1件ずつ「詳細確認」を押してください。<br>
+            <b>Amazonリサーチだけ</b>…1商品あたり<b>3トークン→1トークン</b>になります。ランク・SR/SSR・値動き・鉄板値はそのまま出ます。出なくなるのは<b>buybox平均とカート価格</b>の2つだけです。<br>
+            <span style="color:#975a16;">Keepaの29€プランは1時間に60トークンまでです。3のままだと1時間に20商品で打ち止めになります。</span>
           </div>
         </div>
         <div style="background:#f7fafc; border-radius:12px; padding:16px; margin-bottom:16px;">
@@ -1038,9 +1041,11 @@
   </div>
   <div id="view-amazon" class="view">
     <div class="content">
-      <div class="search-box">
-        <input type="text" id="amazonKw" placeholder="ASINや型番を入力..." onkeypress="if(event.keyCode==13) runAmazonResearch()">
+      <div class="search-box" style="position:relative;">
+        <div id="dict-suggest" style="display:none; position:absolute; top:46px; left:0; right:0; background:#fff; border:1px solid #cbd5e0; border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,0.12); z-index:50; max-height:60vh; overflow-y:auto;"></div>
+        <input type="text" id="amazonKw" placeholder="ASIN・型番・AmazonのURL..." onkeypress="if(event.keyCode==13) runAmazonResearch()">
         <button onclick="startBarcodeScanTest()" id="scanTestBtn" style="background:#4a5568; padding:0 12px; flex-shrink:0;"><i class="fas fa-camera"></i></button>
+        <a class="js-search-link" id="googleBtn" href="https://www.google.com/" target="_blank" rel="noopener" title="打った言葉＋Amazon で検索します。長押しで開き方を選べます" style="background:#3f51b5; color:#fff; text-decoration:none; display:flex; align-items:center; padding:0 12px; border-radius:8px; font-weight:bold; font-size:13px; flex-shrink:0;"><i class="fas fa-magnifying-glass"></i></a>
         <button onclick="runAmazonResearch()" id="searchBtn">解析</button>
       </div>
       <div id="barcodeTestScannerArea" style="display:none; width:100%; max-width:450px; margin: 12px auto; border: 1px solid #cbd5e0; border-radius: 12px; overflow: hidden; position: relative; background:#111; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
@@ -1324,6 +1329,16 @@
       <input type="text" id="cfgKeepa" placeholder="あなたのKeepaAPIキー">
       <label style="color:#d9534f;">AmazonセラーID(必須)</label>
       <input type="text" id="cfgSellerId" placeholder="A1234567890XYZなど">
+      <label>🔎 検索ボタンの行き先</label>
+      <select id="cfgSearchEngine" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:14px; background:#fff; box-sizing:border-box;">
+        <option value="google">Google</option>
+        <option value="bing">Bing</option>
+        <option value="duckduckgo">DuckDuckGo</option>
+        <option value="amazon">Amazonで直接さがす</option>
+      </select>
+      <div style="font-size:11px; color:#718096; margin-top:4px; line-height:1.6;">
+        スマホにGoogleアプリが入っていると、検索を押したときにそちらへ持っていかれます。アプリの中で開きたいときは、BingかDuckDuckGoにしてください。リンクを長押しすれば、その場で開き方を選ぶこともできます。
+      </div>
       <button onclick="enablePushNotifications(this)" style="width:100%; background:#ff9900; color:white; padding:10px; border:none; border-radius:6px; font-weight:bold; margin-top:10px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">🔔 スマホに通知を送る許可をする</button>
       <div style="text-align:center; margin-top:14px;">
         <a href="https://billing.stripe.com/p/login/cNi6oGaoe0AD0EI0SV4AU00" target="_blank" rel="noopener" style="font-size:12px; color:#a0aec0; text-decoration:underline; cursor:pointer;"><i class="fas fa-file-invoice-dollar"></i> プラン変更・解約・お支払い状況の確認はこちら</a>
@@ -2551,6 +2566,8 @@ async function syncPatrolData() {
           document.getElementById("cfgSupabaseKey").value = AppStorage.get("sh_supabase_key", "");
           document.getElementById("cfgKeepa").value = AppStorage.get("sh_keepa", ""); 
           document.getElementById("cfgSellerId").value = AppStorage.get("sh_seller_id", "");
+          const seEl = document.getElementById("cfgSearchEngine");
+          if (seEl) seEl.value = AppStorage.get("sh_search_engine", "google");
           document.getElementById("configModal").style.display = "flex";
           // 🌟 サーバー側の最新値があれば、それで上書きして表示する
           try {
@@ -2579,6 +2596,9 @@ async function syncPatrolData() {
           AppStorage.set("sh_supabase_key", licenseKey);
           AppStorage.set("sh_keepa", keepaKey); 
           AppStorage.set("sh_seller_id", sellerId);
+          const seSel = document.getElementById("cfgSearchEngine");
+          if (seSel) AppStorage.set("sh_search_engine", seSel.value || "google");
+          if (typeof refreshSearchLinks === "function") refreshSearchLinks();
           // 🌟 ローカル保存だけでなく、サーバー側(user_settings)にも反映する
           // (research-job/cronはサーバー側のこの値を見て動くため)
           try {
@@ -2758,7 +2778,114 @@ async function syncPatrolData() {
           runAmazonResearch(title);
         }
         function copyAsin(asin) { if (asin && asin !== "B000000000") { navigator.clipboard.writeText(asin).then(() => { const icon = document.getElementById('copyIcon'); if(icon) { icon.className = "fas fa-check text-green-500 text-[12px] ml-1"; setTimeout(() => { icon.className = "far fa-copy text-gray-400 text-[12px] ml-1"; }, 1500); } }); } }
-        function searchAmazonKeyword() { let modelText = document.getElementById('itemModelText') ? document.getElementById('itemModelText').innerText.trim() : ''; if (!modelText || modelText === '-') modelText = document.getElementById('amazonKw').value.trim(); if (!modelText) return alert("検索するキーワードがありません。"); window.open(`https://www.google.com/search?q=${encodeURIComponent(modelText + ' amazon')}`, '_blank'); }
+        // =========================================================
+        // 🌟【辞書サジェスト】打ちながら候補を出す。Keepaは叩かないのでトークンは0。
+        //   ここで選べば商品が決まるので、解析は1〜3トークンで済む
+        //   (Keepaの検索10トークンを丸ごと省ける)。
+        // =========================================================
+        let dictSuggestTimer = null;
+        let dictSuggestLast = "";
+
+        function hideDictSuggest() {
+          const box = document.getElementById('dict-suggest');
+          if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+        }
+
+        function renderDictSuggest(items) {
+          const box = document.getElementById('dict-suggest');
+          if (!box) return;
+          if (!items || items.length === 0) { hideDictSuggest(); return; }
+          let html = '';
+          items.forEach(function (c) {
+            const name = c.title || c.model || c.asin;
+            html += '<div class="dict-sg-row" data-asin="' + c.asin + '" style="padding:8px 10px; border-bottom:1px solid #edf2f7; cursor:pointer;">'
+              + '<div style="font-size:12px; color:#2d3748; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(name) + '</div>'
+              + '<div style="font-size:10px; color:#718096;">' + escapeHtml(c.brand || '') + (c.model ? ' / ' + escapeHtml(c.model) : '') + ' / ' + c.asin + '</div>'
+              + '</div>';
+          });
+          box.innerHTML = html + '<div style="padding:6px 10px; font-size:10px; color:#a0aec0; background:#f7fafc;">辞書から出しています。選んでも解析するまでトークンは使いません</div>';
+          box.style.display = 'block';
+          box.querySelectorAll('.dict-sg-row').forEach(function (row) {
+            row.onclick = function () {
+              document.getElementById('amazonKw').value = row.dataset.asin;
+              hideDictSuggest();
+              runAmazonResearch();
+            };
+          });
+        }
+
+        async function askDictSuggest(term) {
+          try {
+            const res = await fetchWithAuth(getManagerApiUrl(), {
+              method: 'POST',
+              body: JSON.stringify({ command: 'dictSuggest', term: term })
+            });
+            const j = await res.json();
+            if (j && j.success) renderDictSuggest(j.items || []);
+          } catch (e) { /* 出なくても解析はできるので黙って諦める */ }
+        }
+
+        document.addEventListener('input', function (e) {
+          if (!e.target || e.target.id !== 'amazonKw') return;
+          const v = String(e.target.value || '').trim();
+          if (dictSuggestTimer) clearTimeout(dictSuggestTimer);
+          // ASINやURLを貼られた時は候補を出す意味がない
+          if (v.length < 3 || /^[A-Z0-9]{10}$/i.test(v) || v.indexOf('http') === 0) { hideDictSuggest(); return; }
+          if (v === dictSuggestLast) return;
+          dictSuggestTimer = setTimeout(function () {
+            dictSuggestLast = v;
+            askDictSuggest(v);
+          }, 350);
+        });
+
+        document.addEventListener('click', function (e) {
+          const box = document.getElementById('dict-suggest');
+          if (!box || box.style.display === 'none') return;
+          if (e.target && (e.target.id === 'amazonKw' || box.contains(e.target))) return;
+          hideDictSuggest();
+        });
+
+        // 🌟 検索の行き先。GoogleはスマホにGoogleアプリが入っていると、
+        //   そちらへ持っていかれてアプリの外に出てしまう(戻ってこられない)。
+        //   ・リンク(aタグ)にしてあるので、長押しすれば開き方を選べる
+        //   ・行き先をGoogle以外に変えたい人のために、⚙️設定の値で切り替えられる
+        //     sh_search_engine … "google"(初期値) / "bing" / "duckduckgo" / "amazon"
+        //   Bing・DuckDuckGoはアプリを入れている人がまずいないので、
+        //   アプリに出ていかれたくない場合はこちらが確実。
+        function searchKeywordNow() {
+          const modelEl = document.getElementById('itemModelText');
+          let t = modelEl ? modelEl.innerText.trim() : '';
+          if (!t || t === '-') t = (document.getElementById('amazonKw') || {}).value || '';
+          return t.trim();
+        }
+
+        function searchUrlFor(word) {
+          const w = String(word || '').trim();
+          if (!w) return '';
+          const engine = AppStorage.get('sh_search_engine', 'google');
+          if (engine === 'bing') return 'https://www.bing.com/search?q=' + encodeURIComponent(w + ' Amazon');
+          if (engine === 'duckduckgo') return 'https://duckduckgo.com/?q=' + encodeURIComponent(w + ' Amazon');
+          if (engine === 'amazon') return 'https://www.amazon.co.jp/s?k=' + encodeURIComponent(w);
+          return 'https://www.google.com/search?q=' + encodeURIComponent(w + ' Amazon');
+        }
+
+        // リンクの行き先を、今打たれている言葉に合わせて書き換える
+        function refreshSearchLinks() {
+          const url = searchUrlFor(searchKeywordNow());
+          document.querySelectorAll('.js-search-link').forEach(function (a) {
+            a.href = url || 'https://www.google.com/';
+          });
+        }
+        document.addEventListener('input', function (e) {
+          if (e.target && e.target.id === 'amazonKw') refreshSearchLinks();
+        });
+
+        function searchAmazonKeyword() {
+          const url = searchUrlFor(searchKeywordNow());
+          if (!url) return alert("検索するキーワードがありません。");
+          window.open(url, '_blank');
+        }
+
     // 🚀 Amazon履歴の読み込みと保存
         function loadAmazonHistory() {
           const histArea = document.getElementById('amazonHistoryArea');
@@ -2863,6 +2990,7 @@ async function syncPatrolData() {
           if (!kw) return alert("キーワードかASINを入力してください！"); 
           if (!apiKey) { openConfig(); return alert("⚙️設定からKeepaAPIキーを入力してください！"); }
           
+          hideDictSuggest();
           resView.innerHTML = '<div class="loading-spinner">⌛ Keepa APIと高速通信・解析中...</div>';
           
           // 🌟 検索したら履歴は完全に隠す(店舗版と同じ挙動)
@@ -2872,13 +3000,20 @@ async function syncPatrolData() {
           
           try {
             // ... (以下既存のコードそのまま)
-            let asin = kw;
-            if (!/^[A-Z0-9]{10}$/i.test(kw)) {
-              const searchJson = await callKeepaViaServer({ kind: "search", term: kw });
+            const pickedAsin = pickAsinFromText(kw);
+            let asin = pickedAsin || kw;
+            if (!pickedAsin && !/^[A-Z0-9]{10}$/i.test(kw)) {
+              const forceSearch = window.__forceKeepaSearch === true;
+              window.__forceKeepaSearch = false;
+              const searchJson = await callKeepaViaServer({ kind: "search", term: kw, force: forceSearch });
+              if (searchJson && searchJson.dictCandidates && searchJson.dictCandidates.length > 1) {
+                resView.innerHTML = dictPickerHtml(searchJson.dictCandidates, kw);
+                return;
+              }
               if (!searchJson.products || searchJson.products.length === 0) { resView.innerHTML = '<div class="card" style="color:#e53e3e; text-align:center;">❌ 商品が見つかりませんでした。</div>'; return; }
               asin = searchJson.products[0].asin;
             }
-            const prodJson = await callKeepaViaServer({ kind: "product", asin: asin, stats: "90", buybox: true });
+            const prodJson = await callKeepaViaServer({ kind: "product", asin: asin, stats: "90", buybox: true, history: true });
             const p = prodJson.products[0];
             const productTitle = p.title || fallbackTitle || '不明'; const modelNum = p.model || '不明';
             window.tmpTitle = productTitle;
@@ -3055,6 +3190,7 @@ async function syncPatrolData() {
             window.tmpIsRare = isRare;
             // 🌟【トレンド】チャートの向き。Keepaへの問い合わせは増えない。
             const trendNow = calcTrendLabelFromStats(p);
+            const solidNow = solidFromStats(p.stats, p.csv);
             window.tmpTrendLabel = trendNow;
             const RANK_COLORS = { SSR: '#d69e2e', SR: '#a855f7', S: '#ff0000', A: '#ff8c00', B: '#32cd32', C: '#1e90ff', D: '#808080', E: '#808080' };
             const rColor = RANK_COLORS[rank] || '#808080';
@@ -3144,6 +3280,7 @@ async function syncPatrolData() {
                 </div>
               </div>
 
+              ${solidBand(solidNow)}
               ${dropsBand(drops, drops30)}
 
               <div class="calc-box">
@@ -3162,7 +3299,7 @@ async function syncPatrolData() {
               
               <div class="grid-3">
                 <a href="https://keepa.com/#!product/5-${asin}" target="_blank" class="btn-link" style="background:#55a676;">Keepa</a>
-                <button onclick="searchAmazonKeyword()" class="btn-link" style="background:#3f51b5; border:none;">検索</button>
+                <a class="js-search-link btn-link" href="https://www.google.com/" target="_blank" rel="noopener" style="background:#3f51b5; border:none;">検索</a>
                 <a href="https://www.amazon.co.jp/dp/${asin}" target="_blank" class="btn-link" style="background:#f7941d;">Amazon</a>
               </div>`;
               
@@ -3181,6 +3318,7 @@ async function syncPatrolData() {
             };
             ['sPrice', 'bPrice', 'ePrice'].forEach(id => { document.getElementById(id).addEventListener('input', updateCalc); });
             updateCalc();
+            refreshSearchLinks();
             
             // 🚀 解析成功時に履歴に保存！
     saveAmazonHistory({ kw: asin, title: productTitle, img: imageUrl, rank: rank, rColor: rColor, used: usedOffers });
@@ -5625,8 +5763,8 @@ async function syncPatrolData() {
           document.getElementById('info-cond-d').value = data.conditions.d || "";
           document.getElementById('info-cond-e').value = data.conditions.e || "";
           document.getElementById('info-cond-f').value = data.conditions.f || "";
-          const ltEl = document.getElementById('info-low-token');
-          if (ltEl) ltEl.checked = (data.lowTokenMode === true);
+          const ltEl = document.getElementById('info-low-token-scope');
+          if (ltEl) ltEl.value = data.lowTokenScope || (data.lowTokenMode === true ? 'price' : 'off');
           if (data.cards && data.cards.length > 0) {
             data.cards.forEach((card, i) => {
               if (i < 5) {
@@ -5681,7 +5819,7 @@ async function syncPatrolData() {
           body: JSON.stringify({ 
             command: 'saveInfoSettings',
             ssUrl: ssUrl,
-            lowTokenMode: !!(document.getElementById('info-low-token') && document.getElementById('info-low-token').checked),
+            lowTokenScope: (document.getElementById('info-low-token-scope') || {}).value || 'off',
             suppliers: document.getElementById('info-suppliers').value,
             condC: document.getElementById('info-cond-c').value,
             condD: document.getElementById('info-cond-d').value,
@@ -6065,6 +6203,137 @@ async function syncPatrolData() {
       }
       if (btn) { btn.disabled = false; btn.innerHTML = original; }
     }
+
+    // 🌟【鉄板値】よこよこの相場から一瞬だけ落ちて、すぐ売れて消える値段。
+    //   数字も条件も cron.ts / content_panel.js と同じにしてある。
+    //   ここを1つでも書き換えたら、画面ごとに違う鉄板値が出るので触らないこと。
+    const SOLID_MAX_HOURS = 48;      // この時間内に消えた安値だけを谷として数える
+    const SOLID_DEPTH_PERCENT = 7;   // 前後の安いほうから、この%以上落ちた谷だけ
+    const SOLID_BAND_YEN = 500;      // 同じ値段とみなす幅(円)
+    const SOLID_BAND_PERCENT = 5;    // 同じ値段とみなす幅(%)。円と%の大きいほうを使う
+    const SOLID_MIN_HITS = 2;        // この件数そろって初めて鉄板値とする
+    const SOLID_DAYS = 90;
+    const KEEPA_EPOCH_MIN = 21564000;
+
+    function readKeepaSeries(csv, index) {
+      const arr = csv && csv[index];
+      if (!Array.isArray(arr)) return [];
+      const out = [];
+      for (let i = 0; i + 1 < arr.length; i += 2) {
+        const t = Number(arr[i]);
+        const v = Number(arr[i + 1]);
+        if (!isFinite(t) || !isFinite(v)) continue;
+        out.push({ t: (t + KEEPA_EPOCH_MIN) * 60000, v });
+      }
+      return out;
+    }
+
+    function calcSolidPrice(csv) {
+      const series = readKeepaSeries(csv, 2); // 2 = 中古
+      if (series.length < 3) return null;
+      const now = Date.now();
+      const since = now - SOLID_DAYS * 24 * 60 * 60 * 1000;
+      const maxMs = SOLID_MAX_HOURS * 3600000;
+
+      // ① 短命な安値を拾う。前より安く、次でまた上がり、はっきり落ちていて、すぐ消えたもの。
+      const dips = [];
+      for (let i = 1; i + 1 < series.length; i++) {
+        const prev = series[i - 1], cur = series[i], next = series[i + 1];
+        if (cur.t < since) continue;
+        if (!(cur.v > 0) || !(prev.v > 0) || !(next.v > 0)) continue;
+        if (!(cur.v < prev.v) || !(next.v > cur.v)) continue;
+        const shoulder = Math.min(prev.v, next.v);
+        if (!(cur.v <= shoulder * (1 - SOLID_DEPTH_PERCENT / 100))) continue;
+        const ms = next.t - cur.t;
+        if (ms <= 0 || ms > maxMs) continue;
+        dips.push({ v: cur.v, ms, t: cur.t });
+      }
+      if (dips.length < SOLID_MIN_HITS) return null;
+
+      // ② 新しい順に軸を立てて、同じ値段とみなせる仲間を集める。
+      const byNew = dips.slice().sort((a, b) => b.t - a.t);
+      for (const anchor of byNew) {
+        const band = Math.max(SOLID_BAND_YEN, Math.round(anchor.v * SOLID_BAND_PERCENT / 100));
+        const group = dips.filter((d) => Math.abs(d.v - anchor.v) <= band);
+        if (group.length < SOLID_MIN_HITS) continue;
+        const price = Math.round(group.reduce((s, d) => s + d.v, 0) / group.length);
+        const ls = group.map((d) => d.ms).sort((a, b) => a - b);
+        const midMs = ls.length % 2 === 1 ? ls[(ls.length - 1) / 2] : (ls[ls.length / 2 - 1] + ls[ls.length / 2]) / 2;
+        return { price, dips: group.length, medHours: Math.round(midMs / 3600000 * 10) / 10 };
+      }
+      return null;
+    }
+
+    // 🌟 相場が鉄板値の下を通り抜けてしまった商品は、もう使えない古い値段なので捨てる。
+    //   比べる相手を今の最安ではなく30日平均にしているのは、
+    //   たまたま今日が谷の最中だと、正しい鉄板値まで消えてしまうため。
+    function solidFromStats(stats, csv) {
+      const solid = calcSolidPrice(csv);
+      if (!solid) return null;
+      const avg30Used = (stats && Array.isArray(stats.avg30) && stats.avg30[2] > 0) ? stats.avg30[2] : 0;
+      if (avg30Used > 0 && solid.price > avg30Used) return null;
+      return solid;
+    }
+
+    function solidBand(solid) {
+      if (!solid) return '';
+      return '<div style="background:#fffbeb; border:1px solid #f6e05e; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">'
+        + '<span style="font-size:12px; color:#b7791f; font-weight:bold;">鉄板値</span>'
+        + '<span style="font-size:18px; font-weight:900; color:#975a16;">\u00a5' + Number(solid.price).toLocaleString() + '</span>'
+        + '<span style="font-size:11px; color:#975a16;">' + solid.dips + '回 / ' + solid.medHours + '時間で消える</span>'
+        + '<span style="margin-left:auto; font-size:11px; color:#718096;">この値段で出たらすぐ売れています</span>'
+        + '</div>';
+    }
+
+    // 🌟 貼り付けた文字からASINを取り出す。
+    //   「検索」ボタンでGoogleへ飛んで、別の商品だったと分かったとき、
+    //   そのAmazonのURLをそのまま貼れば解析できるようにするため。
+    //   ASINが取れれば、Keepaの検索(10トークン)は要らなくなる。
+    function pickAsinFromText(text) {
+      const s = String(text || "");
+      const m = s.match(/(?:\/dp\/|\/gp\/product\/|\/product\/|\/ASIN\/)([A-Z0-9]{10})/i);
+      if (m) return m[1].toUpperCase();
+      const b = s.match(/\b(B0[A-Z0-9]{8})\b/i);
+      if (b) return b[1].toUpperCase();
+      return null;
+    }
+
+    // 🌟【辞書の候補】型番だけでは1つに決まらなかったときに出す。
+    //   ここで選べばKeepaの検索(10トークン)は要らず、商品データの3トークンだけで済む。
+    //   この中に無ければ、Keepaで検索し直す道も残してある。
+    function dictPickerHtml(cands, kw) {
+      let rows = "";
+      for (const c of cands) {
+        const name = c.title || c.model || c.asin;
+        rows += '<div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:6px; background:#fff;">'
+          + '<div style="flex:1; min-width:0;">'
+            + '<div style="font-size:13px; color:#2d3748; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(name) + '</div>'
+            + '<div style="font-size:11px; color:#718096;">' + escapeHtml(c.brand || "") + (c.model ? " / 型番 " + escapeHtml(c.model) : "") + " / " + c.asin + '</div>'
+          + '</div>'
+          + '<button onclick="pickDictAsin(\'' + c.asin + '\')" style="background:#07A27B; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer; white-space:nowrap;">これで解析</button>'
+        + '</div>';
+      }
+      return '<div class="card" style="text-align:left;">'
+        + '<div style="font-size:14px; font-weight:bold; color:#2d3748; margin-bottom:4px;">この型番は商品が1つに決まりませんでした</div>'
+        + '<div style="font-size:12px; color:#718096; margin-bottom:12px;">色ちがい・個数ちがいでASINが分かれています。選べば<b>3トークン</b>で解析します。</div>'
+        + rows
+        + '<div style="margin-top:10px; text-align:center;">'
+          + '<button onclick="forceKeepaSearch()" style="background:#4a5568; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-size:12px; font-weight:bold; cursor:pointer;">この中に無い（Keepaで検索・10トークン）</button>'
+        + '</div>'
+      + '</div>';
+    }
+
+    window.pickDictAsin = function (asin) {
+      const box = document.getElementById("amazonKw");
+      if (box) box.value = asin;
+      runAmazonResearch();
+    };
+
+    window.forceKeepaSearch = function () {
+      window.__forceKeepaSearch = true;
+      runAmazonResearch();
+    };
+
     function trendBadge(label) {
       const sub = (t) => '<span style="color:#718096; font-size:9px; margin-left:3px;">' + t + '</span>';
       if (label === '上昇') return '<span style="color:#2f855a; font-weight:900;">↗ 上昇</span>';
@@ -6112,6 +6381,8 @@ async function syncPatrolData() {
       });
       const result = await res.json();
       if (!result || !result.success) throw new Error((result && result.message) || "Keepaの取得に失敗しました");
+      // 🌟 辞書で1つに決まらなかったときは、候補だけが返ってくる（トークンは0）
+      if (result.needPick) return { dictCandidates: result.dictCandidates || [] };
       return result.keepa;
     }
     function getSettingsApiUrl() {

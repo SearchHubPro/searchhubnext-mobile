@@ -3357,7 +3357,16 @@ async function syncPatrolData() {
             
             // 🚀 解析成功時に履歴に保存！
     saveAmazonHistory({ kw: asin, title: productTitle, img: imageUrl, rank: rank, rColor: rColor, used: usedOffers });
-          } catch (err) { resView.innerHTML = '<div class="card" style="color:#e53e3e; text-align:center; font-weight:bold;">❌ 解析エラーが発生しました</div>'; }
+          } catch (err) {
+            // 🌟 サーバーが理由を返している時は、それをそのまま出す。
+            //   「型番と一致する商品がありません」のような、次にどうしたらいいかが
+            //   分かる文言を、ただの「エラー」で潰さないため。
+            const msg = String((err && err.message) || '').trim();
+            const known = msg && msg.indexOf('Keepaの取得に失敗') !== 0;
+            resView.innerHTML = known
+              ? '<div class="card" style="color:#c05621; text-align:center; font-weight:bold; line-height:1.9;">' + escapeHtml(msg) + '</div>'
+              : '<div class="card" style="color:#e53e3e; text-align:center; font-weight:bold;">❌ 解析エラーが発生しました</div>';
+          }
         }
         
 

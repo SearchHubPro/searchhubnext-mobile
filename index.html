@@ -3194,6 +3194,7 @@ async function syncPatrolData() {
             //   ※ サーバー(cron)の calcRankFromProduct と1文字も変えないこと
             const SR_OUT_OF_STOCK_PERCENT = 70; // 中古の90日在庫切れ率がこの%以上
             const SR_MIN_DROPS90 = 3;           // それでも90日でこの回数以上は売れている
+            const SR_MIN_DROPS30 = 1;           // かつ直近30日にも動いている(止まった商品を外す)
             const SR_MAX_USED_OFFERS = 1;       // 今の中古出品者がこの人数以下
             const SR_MIN_CHEAPER_PERCENT = 15;  // (新品ありの時)中古が新品よりこの%以上安い
 
@@ -3203,7 +3204,7 @@ async function syncPatrolData() {
             const newPrice = (p.stats.current && p.stats.current[1] > 0) ? p.stats.current[1] : 0;
             const hasNew = newOffers > 0 || newPrice > 0;
 
-            const isDotted = oos >= SR_OUT_OF_STOCK_PERCENT && drops >= SR_MIN_DROPS90 && usedOffers <= SR_MAX_USED_OFFERS;
+            const isDotted = oos >= SR_OUT_OF_STOCK_PERCENT && drops >= SR_MIN_DROPS90 && drops30 >= SR_MIN_DROPS30 && usedOffers <= SR_MAX_USED_OFFERS;
             // 新品あり → 中古がはっきり安いこと / 新品なし → 価格の条件なし
             // 🌟【修正】値段の比較に「今の中古最安」を使っていたのをやめ、
             //   「中古の90日平均」に変えた。SRが狙っているのは普段は誰も中古を

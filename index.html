@@ -2785,6 +2785,7 @@ async function syncPatrolData() {
         // =========================================================
         let dictSuggestTimer = null;
         let dictSuggestLast = "";
+        let dictSuggestSeq = 0;
 
         function hideDictSuggest() {
           const box = document.getElementById('dict-suggest');
@@ -2817,28 +2818,54 @@ async function syncPatrolData() {
           });
         }
 
-        async function askDictSuggest(term) {
+        // 🌟 問い合わせには通し番号を振る。打ち直しで何回か送ったとき、
+        //   先に送ったほうが後から返ってきて、出ている候補を消してしまうため。
+        async function askDictSuggest(term, seq) {
           try {
             const res = await fetchWithAuth(getManagerApiUrl(), {
               method: 'POST',
               body: JSON.stringify({ command: 'dictSuggest', term: term })
             });
             const j = await res.json();
-            if (j && j.success) renderDictSuggest(j.items || []);
-          } catch (e) { /* 出なくても解析はできるので黙って諦める */ }
+            if (seq !== dictSuggestSeq) return;          // 古い返事は捨てる
+            if (j && j.success) { renderDictSuggest(j.items || []); return; }
+            dictSuggestLast = "";                        // 失敗。同じ言葉でもう一度聞けるように戻す
+          } catch (e) {
+            dictSuggestLast = "";                        // 出なくても解析はできる。黙って諦めるが再挑戦はできるように
+          }
+        }
+
+        function dictSuggestFromInput(el) {
+          if (!el) return;
+          const v = String(el.value || '').trim();
+          if (dictSuggestTimer) clearTimeout(dictSuggestTimer);
+          // ASINやURLを貼られた時は候補を出す意味がない
+          if (v.length < 3 || /^[A-Z0-9]{10}$/i.test(v) || v.indexOf('http') === 0) { hideDictSuggest(); return; }
+          // 🌟【同じ言葉を貼り直しても出るように】
+          //   以前は「前と同じ言葉なら何もしない」で打ち切っていた。そのため
+          //   一度候補を閉じたあと、同じ型番をもう一度貼っても二度と出なかった。
+          //   いま候補が出ている時だけ、無駄な問い合わせを省く。
+          const sgBoxNow = document.getElementById('dict-suggest');
+          const sgShowing = !!(sgBoxNow && sgBoxNow.style.display !== 'none');
+          if (v === dictSuggestLast && sgShowing) return;
+          dictSuggestTimer = setTimeout(function () {
+            dictSuggestLast = v;
+            askDictSuggest(v, ++dictSuggestSeq);
+          }, 350);
         }
 
         document.addEventListener('input', function (e) {
           if (!e.target || e.target.id !== 'amazonKw') return;
-          const v = String(e.target.value || '').trim();
-          if (dictSuggestTimer) clearTimeout(dictSuggestTimer);
-          // ASINやURLを貼られた時は候補を出す意味がない
-          if (v.length < 3 || /^[A-Z0-9]{10}$/i.test(v) || v.indexOf('http') === 0) { hideDictSuggest(); return; }
-          if (v === dictSuggestLast) return;
-          dictSuggestTimer = setTimeout(function () {
-            dictSuggestLast = v;
-            askDictSuggest(v);
-          }, 350);
+          dictSuggestFromInput(e.target);
+        });
+
+        // 🌟【貼り付け】環境によっては、貼り付けても「文字が変わった」合図が
+        //   出ないことがある。手で打つと出るのに貼ると出ない、はこれが原因。
+        //   貼り付けそのものを受けて、値が入った直後にもう一度走らせる。
+        document.addEventListener('paste', function (e) {
+          if (!e.target || e.target.id !== 'amazonKw') return;
+          const el = e.target;
+          setTimeout(function () { dictSuggestFromInput(el); }, 0);
         });
 
         document.addEventListener('click', function (e) {

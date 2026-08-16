@@ -3208,9 +3208,13 @@ async function syncPatrolData() {
             const SR_MIN_DROPS30 = 1;           // かつ直近30日にも動いている(止まった商品を外す)
             const SR_MAX_USED_OFFERS = 1;       // 今の中古出品者がこの人数以下
             const SR_MIN_CHEAPER_PERCENT = 15;  // (新品ありの時)中古が新品よりこの%以上安い
+            // 🌟 SSR用。新品の90日在庫切れ率。100 = 90日間ずっと新品が1件も出ていない。
+            const SR_NEW_OUT_OF_STOCK_PERCENT = 100;
 
             const oos = (p.stats.outOfStockPercentage90 && typeof p.stats.outOfStockPercentage90[2] === 'number' && p.stats.outOfStockPercentage90[2] >= 0)
               ? p.stats.outOfStockPercentage90[2] : -1;
+            const newOos = (p.stats.outOfStockPercentage90 && typeof p.stats.outOfStockPercentage90[1] === 'number' && p.stats.outOfStockPercentage90[1] >= 0)
+              ? p.stats.outOfStockPercentage90[1] : -1;
             const newOffers = (p.stats.current && p.stats.current[11] > 0) ? p.stats.current[11] : 0;
             const newPrice = (p.stats.current && p.stats.current[1] > 0) ? p.stats.current[1] : 0;
             const hasNew = newOffers > 0 || newPrice > 0;
@@ -3225,7 +3229,7 @@ async function syncPatrolData() {
             //   出ていない今の値段ではなく、出たときの相場で比べるのが正しい。
             const rareShape = hasNew
               ? (avgUsed > 0 && newPrice > 0 && avgUsed <= newPrice * (1 - SR_MIN_CHEAPER_PERCENT / 100))
-              : true;
+              : (newOos >= SR_NEW_OUT_OF_STOCK_PERCENT);
             const isRare = isDotted && rareShape;
             // 🌟【あと一歩】SRの形はできているのに、直近30日だけ動きが無いもの。
             //   供給が薄い商品は売れた回数も中古出品者数も伸びず、需要があってもEやDに落ちる。

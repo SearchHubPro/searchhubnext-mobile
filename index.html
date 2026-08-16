@@ -4579,21 +4579,36 @@ async function syncPatrolData() {
           let sku = cols[csvH["SKU"]] || "";
           let getNum = (k) => cleanNum(cols[csvH[k]]);
           const isAdjustmentRefund = (transType === "調整" && description.includes("FBA在庫の返金"));
-          if (!orderId) {
+          // 🌟【注文番号の見分け方】「空かどうか」では分けられない。
+          //   FBA在庫の廃棄手数料と返送手数料は、注文番号の欄に削除依頼のID
+          //   (例: avt+w++RnQ / yBGKlvpAee)が入る。これを「注文番号あり」と読んでいたため、
+          //   経費に回らないまま注文として処理されて迷子になっていた。
+          //   本物の注文番号は 503-1234567-1234567 の形。
+          //   実データ600行(2026年1〜7月)で確認ずみ。形が違うものは全部この手数料系だった。
+          const isRealOrder = /^\d{3}-\d{7}-\d{7}$/.test(orderId);
+          if (!isRealOrder) {
             if (isAdjustmentRefund && sku) {
               let dateStr = cols[csvH["日付/時間"]] || "";
               reportData.push({ type: "ADJ", sku: sku, date: dateStr.split(" ")[0] || "", hotenCSV: getNum("その他") });
               continue;
             }
-            const targetExpTypes = ["FBA 在庫関連の手数料", "注文外料金", "サービス料金"];
-            if (targetExpTypes.includes(transType)) {
+            // 🌟【種類は前方一致で見る】完全一致では後ろに言葉が付くものが落ちていた。
+            //   「FBA 在庫関連の手数料 - 訂正」「FBA 在庫関連の手数料 - 取り消し」
+            //   保管手数料の訂正はこの2つが必ずペアで出る。片方だけ入れると金額が狂う。
+            //   「FBA手数料」は別名。返送手数料・長期在庫保管手数料などがこの名前で来る。
+            const targetExpTypes = ["FBA 在庫関連の手数料", "注文外料金", "サービス料金", "FBA手数料"];
+            if (targetExpTypes.some((t) => transType.indexOf(t) === 0)) {
               let amount = getNum("合計");
               if (amount !== 0) {
                 let dateStr = cols[csvH["日付/時間"]] || "";
                 let dayStr = dateStr.split(" ")[0] || "";
                 let monthParts = dayStr.split("/");
                 let monthStr = monthParts.length >= 2 ? `${monthParts[0]}/${monthParts[1]}` : "";
-                expenseData.push({ month: monthStr, date: dayStr, type: transType, amount: Math.abs(amount), memo: description });
+                // 🌟【符号】CSVは支払いがマイナス、取り消し(戻し)がプラスで入る。
+                //   経費一覧は支払いをプラスで出すので、向きだけ反転させる。
+                //   以前は Math.abs で符号を消していたため、取り消しが経費として
+                //   加算されていた(実データ半年で +13,579円ぶん逆に入る計算だった)。
+                expenseData.push({ month: monthStr, date: dayStr, type: transType, amount: -amount, memo: description });
               }
             }
             continue;

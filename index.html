@@ -5618,7 +5618,9 @@ async function syncPatrolData() {
         return;
       }
       let html = "";
-      filtered.slice().reverse().forEach(row => {
+      // 🌟 新しい順に出す。サーバーは日付の新しい順で返してくるので、
+      //   ここで反転させると古い順になってしまう。並べ替えずにそのまま出す。
+      filtered.forEach(row => {
         const amount = Number(row[3]) || 0;
         const color = amount >= 5000 ? "#e53e3e" : "#333"; 
         const source = String(row[5] || "");

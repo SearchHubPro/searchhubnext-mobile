@@ -6333,13 +6333,23 @@ async function syncPatrolData() {
     }
 
     // 🌟 相場が鉄板値の下を通り抜けてしまった商品は、もう使えない古い値段なので捨てる。
-    //   比べる相手を今の最安ではなく30日平均にしているのは、
-    //   たまたま今日が谷の最中だと、正しい鉄板値まで消えてしまうため。
+    //
+    //   比べる相手は「今の中古最安」。
+    //   一度は30日平均に逃がしていたが、じわじわ下がっている商品では平均が
+    //   遅れて付いてくるため、死んだ鉄板値がいつまでも残っていた。
+    //   (実測: ASUS TUF GAMING B550-PLUS。中古最安11,980円まで落ちているのに
+    //    5〜6月の相場14,000円台の谷から出た鉄板値13,290円が残っていた)
+    //
+    //   ただし今の最安とそのまま比べると、今日がちょうど谷の最中だったときに
+    //   正しい鉄板値まで消してしまう。鉄板値は谷を SOLID_BAND の幅で束ねた
+    //   平均なので、新しい谷はその幅ぶん下に出ることがあるため。
+    //   → 束ねるのに使っている幅ぶんだけ余裕を持たせて比べる。
     function solidFromStats(stats, csv) {
       const solid = calcSolidPrice(csv);
       if (!solid) return null;
-      const avg30Used = (stats && Array.isArray(stats.avg30) && stats.avg30[2] > 0) ? stats.avg30[2] : 0;
-      if (avg30Used > 0 && solid.price > avg30Used) return null;
+      const nowUsed = (stats && Array.isArray(stats.current) && stats.current[2] > 0) ? stats.current[2] : 0;
+      const band = Math.max(SOLID_BAND_YEN, Math.round(solid.price * SOLID_BAND_PERCENT / 100));
+      if (nowUsed > 0 && solid.price > nowUsed + band) return null;
       return solid;
     }
 

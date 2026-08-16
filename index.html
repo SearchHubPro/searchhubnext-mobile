@@ -705,6 +705,17 @@
             <label style="font-size:12px;"><input type="checkbox" class="rs-keepRank" value="D"> D</label>
             <label style="font-size:12px;"><input type="checkbox" class="rs-keepRank" value="E"> E</label>
           </div>
+          <label style="display:flex; align-items:center; gap:6px; margin-top:12px; padding:10px 12px; background:#faf5ff; border:1px solid #e9d8fd; border-radius:8px; font-size:12px; font-weight:bold; color:#553c9a; cursor:pointer;">
+            <input type="checkbox" id="rs-keepRare">
+            <span>「+」が付いた商品は、対象外のランクでも残す</span>
+          </label>
+          <div style="font-size:11px; color:#718096; line-height:1.7; margin-top:6px;">
+            「+」は、SRの形はできているのに直近30日だけ動きが無い商品に付きます。
+            中古がほとんど出回らない商品は売れた回数も出品者数も伸びないため、
+            需要があってもランクが低く出ます。取りこぼしたくない場合に入れてください。
+            除外ブランド・FBA料金・販売金額のふるいは、これまでどおりかかります。
+            ヤフオクの落札実績の確認も、これまでどおり通ります。
+          </div>
         </div>
       </div>
       <div id="rpanel-seller" class="rsetting-panel" style="display:none;">
@@ -3204,16 +3215,22 @@ async function syncPatrolData() {
             const newPrice = (p.stats.current && p.stats.current[1] > 0) ? p.stats.current[1] : 0;
             const hasNew = newOffers > 0 || newPrice > 0;
 
-            const isDotted = oos >= SR_OUT_OF_STOCK_PERCENT && drops >= SR_MIN_DROPS90 && drops30 >= SR_MIN_DROPS30 && usedOffers <= SR_MAX_USED_OFFERS;
+            const isDottedBase = oos >= SR_OUT_OF_STOCK_PERCENT && drops >= SR_MIN_DROPS90 && usedOffers <= SR_MAX_USED_OFFERS;
+            const isDotted = isDottedBase && drops30 >= SR_MIN_DROPS30;
             // 新品あり → 中古がはっきり安いこと / 新品なし → 価格の条件なし
             // 🌟【修正】値段の比較に「今の中古最安」を使っていたのをやめ、
             //   「中古の90日平均」に変えた。SRが狙っているのは普段は誰も中古を
             //   出していない商品なので、一番SRらしい商品ほど今の中古出品者が0人になる。
             //   0人だと今の中古最安が0円になり、minUsed > 0 の時点で必ず落ちていた。
             //   出ていない今の値段ではなく、出たときの相場で比べるのが正しい。
-            const isRare = isDotted && (hasNew
+            const rareShape = hasNew
               ? (avgUsed > 0 && newPrice > 0 && avgUsed <= newPrice * (1 - SR_MIN_CHEAPER_PERCENT / 100))
-              : true);
+              : true;
+            const isRare = isDotted && rareShape;
+            // 🌟【あと一歩】SRの形はできているのに、直近30日だけ動きが無いもの。
+            //   供給が薄い商品は売れた回数も中古出品者数も伸びず、需要があってもEやDに落ちる。
+            //   ランクは書き換えず、横に「+」を出すための印だけ持たせる。
+            const isNearRare = !isRare && isDottedBase && rareShape;
             // 🌟 rank は今まで通りSRで上書きする(「残すランク」の設定を壊さないため)。
             //   点数側のランクは baseRank として別に持ち、画面では並べて出す。
             const baseRank = rank;
@@ -3230,6 +3247,8 @@ async function syncPatrolData() {
             window.tmpTrendLabel = trendNow;
             const RANK_COLORS = { SSR: '#d69e2e', SR: '#a855f7', S: '#ff0000', A: '#ff8c00', B: '#32cd32', C: '#1e90ff', D: '#808080', E: '#808080' };
             const rColor = RANK_COLORS[rank] || '#808080';
+            // 🌟 画面に出す文字だけ「+」を足す。保存や判定に使う rank はそのまま。
+            const rankLabel = rank + (isNearRare ? '+' : '');
             window.tmpRank = rank;
             
             // 🌟 サイズ判定はサーバー(cron)と完全に同じルールにする。
@@ -3277,7 +3296,7 @@ async function syncPatrolData() {
                     <i class="far fa-copy text-gray-400 text-[12px] ml-1" id="copyIcon"></i>
                   </div>
                   <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                    <span class="badge" style="border:1px solid ${rColor}; color:${rColor}; padding:3px 8px;">${rank}ランク</span>
+                    <span class="badge" style="border:1px solid ${rColor}; color:${rColor}; padding:3px 8px;">${rankLabel}ランク</span>
                     <span class="badge" style="background:${sizeTier==='大型'?'#e53e3e':'#07A27B'}; color:white; padding:3px 8px;">${sizeTier}</span>
                     <a href="https://sellercentral.amazon.co.jp/product-search/search?q=${asin}" target="_blank" style="background:#e53e3e; color:#fff; text-decoration:none; padding:3px 8px; border-radius:4px; font-size:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.15);">規制確認</a>
                     <button onclick="openView('view-history'); document.getElementById('historyAsin').value='${asin}'; searchHistory();" style="background:#4285f4; color:white; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:10px; margin-left:4px; cursor:pointer;"><i class="fas fa-history"></i> 販売履歴リサーチ</button>
@@ -4016,7 +4035,7 @@ async function syncPatrolData() {
               <div style="flex:1; min-width:0;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                   <span style="font-size:11px; font-weight:bold; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px;">${item.asin}</span>
-                  <span style="font-size:11px; font-weight:bold; color:${rankColor}; border:1px solid ${rankColor}; padding:1px 6px; border-radius:4px;">${rankText}ランク</span>
+                  <span style="font-size:11px; font-weight:bold; color:${rankColor}; border:1px solid ${rankColor}; padding:1px 6px; border-radius:4px;">${rankText}${item.near_rare ? '+' : ''}ランク</span>
                 </div>
                 
                 <div style="display:flex; gap:10px; margin-bottom:8px;">
@@ -6866,6 +6885,7 @@ async function syncPatrolData() {
         document.getElementById("rs-fbaFeeDefault").value = d.fba_fee_default ?? "";
         const keepRanks = d.keep_ranks || ["SSR", "SR", "S", "A", "B"];
         document.querySelectorAll(".rs-keepRank").forEach(cb => { cb.checked = keepRanks.includes(cb.value); });
+        document.getElementById("rs-keepRare").checked = (d.keep_rare === true);
         document.getElementById("rs-minReview").value = d.min_review_count ?? 50;
         document.getElementById("rs-maxReview").value = d.max_review_count ?? 500;
         document.getElementById("rs-minStock").value = d.min_seller_stock ?? 80;
@@ -6896,6 +6916,7 @@ async function syncPatrolData() {
         price_max: parseFloat(document.getElementById("rs-priceMax").value) || null,
         fba_fee_default: parseFloat(document.getElementById("rs-fbaFeeDefault").value) || null,
         keep_ranks: keepRanks,
+        keep_rare: document.getElementById("rs-keepRare").checked,
         min_review_count: parseInt(document.getElementById("rs-minReview").value, 10) || 50,
         max_review_count: parseInt(document.getElementById("rs-maxReview").value, 10) || 500,
         min_seller_stock: parseInt(document.getElementById("rs-minStock").value, 10) || 80,

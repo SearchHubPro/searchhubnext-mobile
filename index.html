@@ -1232,6 +1232,7 @@
   <div id="view-monthly-purchase" class="view">
     <div class="content">
       <div style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+        <select id="monthly-purchase-year-selector" onchange="loadMonthlyData()" style="padding:8px; border-radius:6px; border:1px solid #cbd5e0; font-weight:bold; font-size:14px; outline:none; background:#fff; color:#1a365d; min-width:92px; margin-right:8px;"><option>--</option></select>
         <select id="monthly-purchase-selector" onchange="renderMonthlyData()" style="padding:8px; border-radius:6px; border:1px solid #cbd5e0; font-weight:bold; font-size:14px; outline:none; background:#fff; color:#1a365d; min-width: 140px;">
           <option>読込中...</option>
         </select>
@@ -1252,6 +1253,7 @@
   <div id="view-monthly-sales" class="view">
     <div class="content">
       <div style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+        <select id="monthly-sales-year-selector" onchange="loadMonthlyData()" style="padding:8px; border-radius:6px; border:1px solid #cbd5e0; font-weight:bold; font-size:14px; outline:none; background:#fff; color:#1a365d; min-width:92px; margin-right:8px;"><option>--</option></select>
         <select id="monthly-sales-selector" onchange="renderMonthlyData()" style="padding:8px; border-radius:6px; border:1px solid #cbd5e0; font-weight:bold; font-size:14px; outline:none; background:#fff; color:#1a365d; min-width: 140px;">
           <option>読込中...</option>
         </select>
@@ -3772,11 +3774,27 @@ async function syncPatrolData() {
           document.getElementById(prefix + '-summary').innerHTML = '<div class="loading-spinner">⌛ 最新の月別データを集計中...</div>';
           
           try {
-            const res = await fetchWithAuth(targetGasUrl, { method: 'POST', body: JSON.stringify({ command: 'getMonthlyData', ssUrl: ssUrl }) });
+            // 🌟【年で絞る】サーバーには1年ぶんだけ返してもらう。
+            //   いま選ばれている年を送る。まだ何も選ばれていなければ空で送り、
+            //   サーバーがいちばん新しい年を選んで返してくる。
+            const yearSelNow = document.getElementById(prefix + '-year-selector');
+            const askYear = (yearSelNow && /^\d{4}$/.test(yearSelNow.value)) ? yearSelNow.value : "";
+            const res = await fetchWithAuth(targetGasUrl, { method: 'POST', body: JSON.stringify({ command: 'getMonthlyData', ssUrl: ssUrl, year: askYear }) });
             const json = await res.json();
             if (!json.success) { document.getElementById(prefix + '-summary').innerHTML = '<div class="card" style="color:red; text-align:center;">エラー: ' + json.message + '</div>'; return; }
             
             globalMonthlyData = json.data;
+
+            // 🌟 年の選択を作り直す。仕入と販売の両方を同じ年にそろえる。
+            ['monthly-purchase', 'monthly-sales'].forEach(p => {
+              const ysel = document.getElementById(p + '-year-selector');
+              if (!ysel) return;
+              const yrs = json.data.years || [];
+              ysel.innerHTML = "";
+              yrs.forEach(y => ysel.appendChild(new Option(y + '年', y)));
+              if (json.data.year) ysel.value = json.data.year;
+            });
+
             let allMonths = new Set();
             globalMonthlyData.purchase.forEach(d => allMonths.add(d.month)); globalMonthlyData.sales.forEach(d => allMonths.add(d.month));
             let monthArr = Array.from(allMonths).sort((a,b) => b.localeCompare(a));

@@ -1799,9 +1799,10 @@
         const json = await res.json();
         if (json.success && json.data) {
           homeData = json.data;
+          if (!homeData.monthly) homeData.monthly = {};
           if (homeData.availableMonths.length > 0) {
             currentHomeMonth = homeData.availableMonths[0];
-            
+
             const monthArea = document.getElementById('homeMonthTabsArea');
             monthArea.innerHTML = '';
             homeData.availableMonths.forEach(m => {
@@ -1811,6 +1812,9 @@
               btn.onclick = function() { switchHomeMonth(m, this); };
               monthArea.appendChild(btn);
             });
+            // 🌟 月別グラフは押した月だけ取りに行く。開いた直後は
+            //   いちばん新しい月を1回だけ自動で開く(見た目は今までと同じ)。
+            await ensureHomeMonth(currentHomeMonth);
           }
           // 💡 外側のTOPボタンと、内側のメニューボタンの両方を取得！
           const dashDotRes = document.getElementById('dash-dot-researcher');
@@ -1932,9 +1936,10 @@
         monthArea.style.display = 'flex';
         const config = chartConfig[currentHomeMode];
         const monthDataObj = homeData.monthly[currentHomeMonth] ? homeData.monthly[currentHomeMonth][currentHomeMode] : null;
-        
+
+        // 🌟 その月をまだ取りに行っていない間はここに来る。読み込みが終われば描き直される。
         if (!monthDataObj) {
-           contentArea.innerHTML = `<div style="text-align:center; padding:30px; color:#a0aec0; font-size:12px;">データがありません</div>`;
+           contentArea.innerHTML = `<div style="text-align:center; padding:30px; color:#a0aec0; font-size:12px;">⌛ ${currentHomeMonth || ''} を読み込み中...</div>`;
            return;
         }
         // 💡 利益率の計算を追加！
@@ -2166,11 +2171,44 @@
       if (fund)   fund.style.display   = (mode === 'fund')  ? '' : 'none';
       if (stock)  stock.style.display  = (mode === 'stock') ? 'flex' : 'none';
     }
-    function switchHomeMonth(month, btn) {
+    // 🌟【月は押したときに取りに行く】
+    //   以前はダッシュボードを開いた時に、全部の月ぶんをサーバーで作って
+    //   まとめて受け取っていた。そのためにサーバーは帳簿を丸ごと読んでいた。
+    //   いまは押した月だけを取りに行く。一度取った月は覚えておくので、
+    //   1月→2月→1月と戻っても2回目は通信しない。
+    async function ensureHomeMonth(month) {
+      if (!month) return false;
+      if (!homeData.monthly) homeData.monthly = {};
+      if (homeData.monthly[month]) return true;
+      const ssUrl = AppStorage.get("sh_ssurl", "");
+      let targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
+      if (!ssUrl || !targetGasUrl) return false;
+      try {
+        const res = await fetchWithAuth(targetGasUrl, {
+          method: 'POST',
+          body: JSON.stringify({ command: 'getDashboardMonth', ssUrl: ssUrl, month: month })
+        });
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          homeData.monthly[month] = {
+            purchase: json.data.purchase,
+            sales: json.data.sales,
+            inventory: json.data.inventory
+          };
+          return true;
+        }
+      } catch (err) {
+        console.error("month fetch error", err);
+      }
+      return false;
+    }
+    async function switchHomeMonth(month, btn) {
       document.querySelectorAll('.home-month-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentHomeMonth = month;
-      updateHomeView();
+      updateHomeView();            // まず「読み込み中」を出す
+      await ensureHomeMonth(month);
+      if (currentHomeMonth === month) updateHomeView();
     }
     function drawTurnoverChart(percent) {
       const baseCircle = document.querySelector('.circle-base');
@@ -5881,14 +5919,27 @@ async function syncPatrolData() {
         alert("❌ 通信エラーが発生しました");
       }
     }
-    window.renderMonthlyInventory = function() {
+    window.renderMonthlyInventory = async function() {
       const m = document.getElementById('monthly-inv-selector').value;
-      if (!m || !homeData.monthly[m] || !homeData.monthly[m].inventory) {
+      if (!m) {
         document.getElementById('val-kishu').innerHTML = '¥--';
         document.getElementById('val-kimatsu').innerHTML = '¥--';
         return;
       }
-      
+      // 🌟 その月をまだ取っていなければ、ここで取りに行く。
+      if (!homeData.monthly || !homeData.monthly[m]) {
+        document.getElementById('val-kishu').innerHTML = '<span style="font-size:14px; color:#a0aec0;">⌛</span>';
+        document.getElementById('val-kimatsu').innerHTML = '<span style="font-size:14px; color:#a0aec0;">⌛</span>';
+        await ensureHomeMonth(m);
+        // 待っている間に別の月が選ばれていたら、そちらの描画に任せる
+        if (document.getElementById('monthly-inv-selector').value !== m) return;
+      }
+      if (!homeData.monthly[m] || !homeData.monthly[m].inventory) {
+        document.getElementById('val-kishu').innerHTML = '¥--';
+        document.getElementById('val-kimatsu').innerHTML = '¥--';
+        return;
+      }
+
       const inv = homeData.monthly[m].inventory;
       const kishuCount = inv.kishuCount !== undefined ? inv.kishuCount : 0;
       const kimatsuCount = inv.kimatsuCount !== undefined ? inv.kimatsuCount : 0;

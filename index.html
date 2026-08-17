@@ -877,8 +877,11 @@
           </div>
         </div>
       </div>
-      <div class="search-box" style="margin-bottom:16px;">
-        <input type="text" id="ledger-search-kw" placeholder="SKU・ASIN・商品名・仕入先で検索..." oninput="ledgerCurrentPage=1; renderLedgerList();" style="flex:2;">
+      <div class="search-box" style="margin-bottom:6px; flex-wrap:wrap;">
+        <input type="text" id="ledger-search-kw" placeholder="SKU・ASIN・商品名・仕入先で検索..." oninput="ledgerCurrentPage=1; renderLedgerList();" style="flex:1 1 100%;">
+        <select id="ledger-year-filter" onchange="ledgerCurrentPage=1; loadLedgerData();" style="flex:0 0 92px; padding:10px; border-radius:8px; border:1px solid #ccc; outline:none; font-size:12px; font-weight:bold; background:white; color:#1a365d;">
+          <option value="">--</option>
+        </select>
         <select id="ledger-status-filter" onchange="ledgerCurrentPage=1; renderLedgerList();" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; outline:none; font-size:12px; font-weight:bold; background:white; color:#1a365d;">
           <option value="ALL">すべて表示</option>
           <option value="未販売">🚚📦 納品待ち＋出品中</option>
@@ -888,6 +891,8 @@
           <option value="補填済み">🛡️ 補填済み</option>
         </select>
       </div>
+      <!-- 🌟 年で絞っていることを必ず画面に出す。黙って切らない。 -->
+      <div id="ledger-year-note" style="display:none; font-size:11px; color:#718096; margin:0 0 14px 4px; line-height:1.7;"></div>
       <style>
         #ledgerTable .sales-data { display: none; }
         #ledgerTable.sales-mode .sales-data { display: block; }
@@ -4279,13 +4284,39 @@ async function syncPatrolData() {
           const isSold = (item.status === '販売済' || item.status === '返金済み' || item.status === '補填済み');
           return isSold ? item.sellDate : item.buyDate;
         }
-        function openCsvExportModal() {
-          if (!globalLedgerData || globalLedgerData.length === 0) {
-            alert("⚠️ 先に帳簿データを読み込んでください！（最新を取得ボタンを押してから開いてください）");
+        // 🌟【CSVは全期間】画面は年で絞っているが、書き出しは帳簿ぜんぶを出す。
+        //   画面に出ている年のぶんだけ書き出すと、確定申告で使うときに足りない。
+        //   書き出す時だけサーバーから全期間を取り直す(year:'ALL')。
+        //   ふだんの読み込みは1年ぶんのままなので、通信量は増えない。
+        let csvLedgerData = [];
+        async function openCsvExportModal() {
+          const ssUrl = AppStorage.get("sh_ssurl", "");
+          let targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
+          if (!ssUrl || !targetGasUrl) {
+            openConfig();
+            return;
+          }
+          const sel = document.getElementById('csv_exportMonth');
+          const cntEl = document.getElementById('csv_exportCount');
+          sel.innerHTML = '<option value="ALL">すべての月</option>';
+          cntEl.innerText = '⌛ 帳簿の全期間を読み込み中...';
+          document.getElementById('csvExportModal').style.display = 'flex';
+          try {
+            const res = await fetchWithAuth(targetGasUrl, {
+              method: 'POST',
+              body: JSON.stringify({ command: 'getLedgerData', ssUrl: ssUrl, year: 'ALL' })
+            });
+            const json = await res.json();
+            csvLedgerData = (json && json.success && json.data) ? json.data : [];
+          } catch (err) {
+            csvLedgerData = [];
+          }
+          if (csvLedgerData.length === 0) {
+            cntEl.innerText = '❌ 帳簿を読み込めませんでした。通信を確かめてもう一度開いてください。';
             return;
           }
           const monthSet = new Set();
-          globalLedgerData.forEach(item => {
+          csvLedgerData.forEach(item => {
             const d = getRelevantDateForItem(item);
             if (d) {
               const m = String(d).replace(/-/g, '/').substring(0, 7); // yyyy/MM
@@ -4293,11 +4324,8 @@ async function syncPatrolData() {
             }
           });
           const monthArr = Array.from(monthSet).sort().reverse();
-          const sel = document.getElementById('csv_exportMonth');
-          sel.innerHTML = '<option value="ALL">すべての月</option>';
           monthArr.forEach(m => { sel.innerHTML += `<option value="${m}">${m}</option>`; });
-          document.getElementById('csv_exportCount').innerText = `帳簿全体: ${globalLedgerData.length}件（未販売は仕入日、販売済み系は販売日で月判定）`;
-          document.getElementById('csvExportModal').style.display = 'flex';
+          cntEl.innerText = `帳簿全体: ${csvLedgerData.length}件（全期間・未販売は仕入日、販売済み系は販売日で月判定）`;
         }
         function csvEscape(val) {
           if (val === null || val === undefined) return '';
@@ -4310,7 +4338,11 @@ async function syncPatrolData() {
         function executeCsvExport() {
           const targetMonth = document.getElementById('csv_exportMonth').value;
           const targetStatus = document.getElementById('csv_exportStatus').value;
-          let filtered = globalLedgerData.filter(item => {
+          if (!csvLedgerData || csvLedgerData.length === 0) {
+            alert("⚠️ 帳簿がまだ読み込めていません。閉じてもう一度開いてください。");
+            return;
+          }
+          let filtered = csvLedgerData.filter(item => {
             const relevantDate = getRelevantDateForItem(item);
             const matchMonth = (targetMonth === 'ALL') || (relevantDate && String(relevantDate).replace(/-/g, '/').substring(0, 7) === targetMonth);
             const matchStatus = (targetStatus === 'ALL') || (item.status === targetStatus);
@@ -4361,6 +4393,29 @@ async function syncPatrolData() {
           URL.revokeObjectURL(url);
           document.getElementById('csvExportModal').style.display = 'none';
         }
+        // 🌟 年の選択肢を作り直し、いま何を出しているかを画面に書く。
+        //   上限で黙って切るのではなく、切っている事実を必ず見せる。
+        function applyLedgerYearSelector(json) {
+          const ysel = document.getElementById('ledger-year-filter');
+          const note = document.getElementById('ledger-year-note');
+          const years = (json && json.years) ? json.years : [];
+          const year = (json && json.year) ? json.year : '';
+          if (ysel && years.length > 0) {
+            ysel.innerHTML = '';
+            years.forEach(y => ysel.appendChild(new Option(y + '年', y)));
+            if (year) ysel.value = year;
+          }
+          if (note) {
+            if (year && years.length > 0) {
+              note.innerHTML = `📅 いま出しているのは <b>${year}年</b> の分だけです。ほかの年は上の年で切り替えてください。`
+                + `<br>まだ売れていない在庫（納品待ち・出品中）は、仕入れた年に関係なくいつでも出ます。`
+                + `<br>CSV書き出しは年に関係なく全期間を出します。`;
+              note.style.display = 'block';
+            } else {
+              note.style.display = 'none';
+            }
+          }
+        }
         async function loadLedgerData() {
           const resDiv = document.getElementById('ledgerResult');
           const countEl = document.getElementById('ledgerCount');
@@ -4374,14 +4429,20 @@ async function syncPatrolData() {
           resDiv.innerHTML = '<div class="loading-spinner" style="grid-column: 1 / -1;">⌛ Managerシートから帳簿データを同期中...</div>';
           countEl.innerText = "同期中...";
           try {
+            // 🌟【年で絞る】画面に出すのは1年ぶん。選ばれていなければサーバーが最新の年を返す。
+            const ysel = document.getElementById('ledger-year-filter');
+            const askYear = (ysel && /^\d{4}$/.test(ysel.value)) ? ysel.value : "";
             const res = await fetchWithAuth(targetGasUrl, {
               method: 'POST',
-              body: JSON.stringify({ command: 'getLedgerData', ssUrl: ssUrl })
+              body: JSON.stringify({ command: 'getLedgerData', ssUrl: ssUrl, year: askYear })
             });
             const json = await res.json();
-            
+
+            // 年の選択肢を作り直す
+            applyLedgerYearSelector(json);
+
             if (!json.success || !json.data || json.data.length === 0) {
-              resDiv.innerHTML = '<div class="card" style="text-align:center; color:#a0aec0; padding:30px 10px; grid-column: 1 / -1;">現在、帳簿にデータがありません。</div>';
+              resDiv.innerHTML = '<div class="card" style="text-align:center; color:#a0aec0; padding:30px 10px; grid-column: 1 / -1;">この年の帳簿にデータがありません。</div>';
               countEl.innerText = "帳簿: 0件";
               globalLedgerData = [];
               document.getElementById('ledger-pagination').style.display = 'none';

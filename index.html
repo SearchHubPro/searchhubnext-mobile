@@ -4688,8 +4688,13 @@ async function syncPatrolData() {
           if (salesChannelCol.trim() === "Non-Amazon") continue;
           let channel = cols[txtH["fulfillment-channel"]] || "";
           let isMerchant = (channel === "Merchant");
+          // 🌟【SKU欄の掃除】TXTにも「SKU: 277-2026...」と頭に付いた行が来ることがある。
+          //   Amazonが特定の出品だけこの書き方で出してくる。そのまま販売管理のSKUと
+          //   比べると一致せず、その注文がまるごと捨てられていた(実測1件)。
+          //   CSVと同じ掃除をここでもかける。
+          let txtSku = String(cols[txtH["sku"]] || "").replace(/^\s*SKU\s*[:：]\s*/i, "").trim();
           reportData.push({
-            type: "TXT", isMerchant, sku: cols[txtH["sku"]], orderId: cols[txtH["amazon-order-id"]],
+            type: "TXT", isMerchant, sku: txtSku, orderId: cols[txtH["amazon-order-id"]],
             date: String(cols[txtH["purchase-date"]] || "").split("T")[0].replace(/-/g, "/"),
             sales: cleanNum(cols[txtH["item-price"]]), shipping: cleanNum(cols[txtH["shipping-price"]])
           });
@@ -4698,7 +4703,11 @@ async function syncPatrolData() {
           let orderId = cols[csvH["注文番号"]] || "";
           let transType = cols[csvH["トランザクションの種類"]] || "";
           let description = cols[csvH["説明"]] || "";
-          let sku = cols[csvH["SKU"]] || "";
+          // 🌟【SKU欄の掃除】まれに「SKU: 277-2026...」と、頭に「SKU:」が付いた行が来る。
+          //   そのまま販売管理のSKUと比べると一致せず、その注文がまるごと反映されない。
+          //   (実測: 2026年1〜7月の475行のうち1行だけこの形だった)
+          //   前後の空白も落としておく。
+          let sku = String(cols[csvH["SKU"]] || "").replace(/^\s*SKU\s*[:：]\s*/i, "").trim();
           let getNum = (k) => cleanNum(cols[csvH[k]]);
           const isAdjustmentRefund = (transType === "調整" && description.includes("FBA在庫の返金"));
           // 🌟【注文番号の見分け方】「空かどうか」では分けられない。
@@ -4742,9 +4751,18 @@ async function syncPatrolData() {
           }
           let isMerchantCSV = (fulfillment === "出品者" || mktShip < 0);
           let isRefund = (transType === "返金") || isAdjustmentRefund;
+          // 🌟【販売日】CSVの「日付/時間」を持たせる。
+          //   これまでCSVには日付を持たせておらず、販売日を入れるのはTXTだけだった。
+          //   TXTを取り込んでいない注文はCSVだけで反映されるが、その時に販売日が空のまま
+          //   残るため、画面は「出品中」のままになっていた(画面は販売日で状態を決めている)。
+          let csvDayStr = String(cols[csvH["日付/時間"]] || "").split(" ")[0] || "";
           reportData.push({
-            type: "CSV", orderId, isMerchantCSV, isRefund, sku,
+            type: "CSV", orderId, isMerchantCSV, isRefund, sku, date: csvDayStr,
             salesFromCSV: getNum("商品売上") || getNum("商品価格"),
+            // 🌟【消費税】Amazonの出品価格は内税。CSVは本体と税に分かれて来るので、
+            //   税も一緒に持たせて、サーバー側で足して税込にそろえる。
+            //   (注文レポート(TXT)のitem-priceは最初から税込)
+            salesTaxCSV: getNum("商品の売上税"),
             shippingFromCSV: getNum("配送料"),
             mktShipFee: mktShip,
             refFee: getNum("販売手数料") + getNum("手数料"),
@@ -4795,6 +4813,7 @@ async function syncPatrolData() {
       const originalText = dropLabel.innerHTML;
       let combinedReportData = [];
       let combinedExpenseData = [];
+      let unmatchedRows = [];   // 🌟 販売管理に行き先が無かった注文
       const errors = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -4816,11 +4835,23 @@ async function syncPatrolData() {
       try {
         const result = await applyAmazonReportData(combinedReportData, combinedExpenseData);
         totalUpdate = result.updateCount; totalExp = result.expCount;
+        unmatchedRows = result.unmatched || [];
       } catch (err) {
         errors.push(`反映処理: ${err.message}`);
       }
       dropLabel.innerHTML = originalText;
       let msg = `【取込完了】\n${files.length}件のファイルを処理しました。\n注文を合計${totalUpdate}件更新し、\n新規の経費を合計${totalExp}件追加しました！`;
+      // 🌟【黙って捨てない】販売管理に行き先が見つからなかった注文を必ず出す。
+      //   以前はここで何も言わずに捨てていたため、「取り込んだのに出品中のまま」の
+      //   商品が何週間も気づかれずに残っていた。
+      if (unmatchedRows.length > 0) {
+        msg += `\n\n⚠️ 販売管理に見つからなかった注文が${unmatchedRows.length}件あります。`;
+        msg += `\n（売れているのに反映できていません。SKUを確かめてください）\n`;
+        unmatchedRows.slice(0, 10).forEach(u => {
+          msg += `\n・${u.date || '日付不明'}  ${u.sku || 'SKUなし'}  ¥${Number(u.sales || 0).toLocaleString()}  注文${u.orderId || '-'}`;
+        });
+        if (unmatchedRows.length > 10) msg += `\n…ほか${unmatchedRows.length - 10}件`;
+      }
       if (errors.length > 0) {
         msg += `\n\n⚠️ 以下でエラーが出ました:\n` + errors.join('\n');
       }

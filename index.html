@@ -2495,10 +2495,21 @@
       // 相場が無い(まだリサーチされていない等)ときは、これまでの表示
       // オークション以外で出品価格が取れていないときも同じ
       if (!(souba > 0) || (!isAuction && !(listPrice > 0))) {
+        // 🌟【なぜ表が出ないのかを書く】以前はここで表を丸ごと省くだけで、
+        //   理由がどこにも出ていなかった。見た人には「札が壊れている」ようにしか見えない。
+        //
+        //   中古の出品者が1人以下の商品は、Keepaに中古の相場そのものが無い。
+        //   在庫更新を何回まわしても数字は入らないので、そこを正しく伝える。
+        //   これは悪い情報ではなく「ライバルがいない」という意味でもあるため、
+        //   一発解析で確かめる、という次の一手まで書いておく。
+        var shNoMarket = (item.marketUnclear === true && Number(item.usedOfferCount || 0) <= 1)
+          ? '💎 中古が枯れています（出品者' + Number(item.usedOfferCount || 0) + '人）。相場が出せないので一発解析で確かめてください。'
+          : '相場がまだ取れていません。一発解析で確かめてください。';
         return headHtml(
           '<div class="item-meta"><span><span class="status-tag">' + escapeHtml(item.status) + '</span>' +
           (dateTimeText ? ' <span class="date-tag" style="font-size:11px; color:#a0aec0;">' + dateTimeText + '</span>' : '') +
-          '</span><span class="price-tag">' + escapeHtml(isAuction ? '' : item.price) + '</span></div>'
+          '</span><span class="price-tag">' + escapeHtml(isAuction ? '' : item.price) + '</span></div>' +
+          '<div class="pl-note" style="margin-top:6px;">' + shNoMarket + '</div>'
         );
       }
 

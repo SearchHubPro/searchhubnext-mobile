@@ -4195,11 +4195,11 @@ async function syncPatrolData() {
 
                 <div id="rgraph_${index}" style="display:none; margin-bottom:8px;"></div>
 
-                <div style="display:flex; gap:6px; justify-content:flex-end; flex-wrap:wrap;">
-                  <a href="https://keepa.com/#!product/5-${item.asin}" target="_blank" style="background:#55a676; color:white; text-decoration:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold;"><i class="fas fa-chart-line"></i> Keepa</a>
-                  <a href="https://www.amazon.co.jp/dp/${item.asin}" target="_blank" style="background:#f7941d; color:white; text-decoration:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold;"><i class="fab fa-amazon"></i> Amazon</a>
-                  <button onclick="openYahooMarket(${index})" style="background:#e53e3e; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold;">ヤフオク</button>
-                  <button onclick="openMercariMarket(${index})" style="background:#805ad5; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold;">メルカリ</button>
+                <div style="display:flex; gap:5px; align-items:stretch;">
+                  <a href="https://keepa.com/#!product/5-${item.asin}" target="_blank" style="flex:1; text-align:center; white-space:nowrap; background:#55a676; color:white; text-decoration:none; padding:6px 2px; border-radius:6px; font-size:11px; font-weight:bold;"><i class="fas fa-chart-line"></i> Keepa</a>
+                  <a href="https://www.amazon.co.jp/dp/${item.asin}" target="_blank" style="flex:1; text-align:center; white-space:nowrap; background:#f7941d; color:white; text-decoration:none; padding:6px 2px; border-radius:6px; font-size:11px; font-weight:bold;"><i class="fab fa-amazon"></i> Amazon</a>
+                  <button onclick="openYahooMarket(${index})" style="flex:1; white-space:nowrap; background:#f6c000; color:#1a365d; border:none; padding:6px 2px; border-radius:6px; font-size:11px; font-weight:bold;">ヤフオク</button>
+                  <button onclick="openMercariMarket(${index})" style="flex:1; white-space:nowrap; background:#e53e3e; color:white; border:none; padding:6px 2px; border-radius:6px; font-size:11px; font-weight:bold;">メルカリ</button>
                 </div>
               </div>
             </div>`;

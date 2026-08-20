@@ -4044,13 +4044,37 @@ async function syncPatrolData() {
           window.open(`https://auctions.yahoo.co.jp/closedsearch/closedsearch?p=${kw}&va=${kw}&b=1&n=100&exflg=1`, '_blank');
         }
         // メルカリは売り切れ(実際に売れた値段)だけを出す。除外ワードは専用の欄に入れる。
+        //   並びは出品が新しい順(メルカリに「売れた順」は無い)。
+        //   値段は、その行に出ている予定売価を上限にして、下限はその半分。
+        //   巡回のURLと同じ形なので、安すぎるジャンクや部品取りが混ざらない。
         function openMercariMarket(index) {
           const base = researcherKeywordOf(index);
           if (!base) return;
+          const item = (typeof globalResearcherData !== 'undefined' && globalResearcherData[index]) || {};
+          const max = Math.floor(Number(researcherBasis(item).sell) || 0);
+          const min = Math.floor(max / 2);
           const ng = researcherNgWords().join(' ');
-          let url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(base)}&status=sold_out`;
+          let url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(base)}&status=sold_out&sort=created_time&order=desc`;
+          if (max > 0) url += `&price_min=${min}&price_max=${max}`;
           if (ng) url += `&exclude_keyword=${encodeURIComponent(ng)}`;
           window.open(url, '_blank');
+        }
+        // 🌟【表示の基準】仕入値基準の設定が【B】【C】の人は、巡回の上限金額が
+        //   buybox平均から作った数字で動く。画面もそちらに差し替えて、
+        //   90日平均は出さない(2つ並べると幅を食うし、どちらで動くのか分かりにくい)。
+        //   【A】の人は今まで通り90日平均を出す。buyboxを取ってあれば横に小さく添える。
+        let researcherWatcherMode = "A";
+        function researcherBasis(item) {
+          const bbAvg = Number(item.buyboxAvg) || 0;
+          const bbBuy = Number(item.buyboxBuyPrice) || 0;
+          const useBb = (researcherWatcherMode === "B" || researcherWatcherMode === "C")
+                        && bbAvg > 0 && bbBuy > 0;
+          return {
+            isBb: useBb,
+            bbAvg: bbAvg,
+            sell: useBb ? bbAvg : (Number(item.sellPrice) || 0),
+            buy: useBb ? bbBuy : (Number(item.buyPrice) || 0),
+          };
         }
         // 夜のヤフオク確認で数えた落札の件数。まだ数えていない行は「未確認」と出す。
         function marketCountLabel(item) {
@@ -4106,6 +4130,7 @@ async function syncPatrolData() {
               globalResearcherData = json.data;
               // 手動の相場確認ボタンで、夜と同じ除外ワードを使うために覚えておく
               if (typeof json.excludeWords === "string") researcherExcludeWords = json.excludeWords;
+              if (typeof json.watcherMode === "string" && json.watcherMode) researcherWatcherMode = json.watcherMode;
               asinCopyIndex = 0;
               renderResearcherList();
             } else {
@@ -4154,6 +4179,11 @@ async function syncPatrolData() {
             // 🌟 サイズ区分
             let sizeTier = item.size ? item.size.toString() : '標準';
             let sizeColor = sizeTier.includes('大型') ? '#e53e3e' : '#07A27B';
+            // 🌟 出す売価・仕入値の基準(設定がB・Cでbuyboxが取れていればbuybox)
+            const bs = researcherBasis(item);
+            const bbMark = bs.isBb
+              ? '<span style="font-size:9px; color:#2b6cb0; font-weight:900; background:#e0f2fe; padding:1px 4px; border-radius:3px; margin-left:3px;">bb</span>'
+              : (bs.bbAvg > 0 ? `<span style="color:#2b6cb0;"> / bb ¥${bs.bbAvg.toLocaleString()}</span>` : '');
             html += `
             <div class="card" id="resCard_${index}" style="display:flex; align-items:flex-start; gap:12px; padding:12px; margin-bottom:10px; border-left:5px solid ${rankColor};">
               <input type="checkbox" id="check_${index}" style="width:24px; height:24px; margin-top:15px; flex-shrink:0;">
@@ -4177,8 +4207,8 @@ async function syncPatrolData() {
                 
                 <div style="background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:8px;">
                   <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:11px; font-weight:bold; color:#4a5568; border-bottom:1px dashed #cbd5e0; padding-bottom:4px;">
-                    <span>予定売価: ¥${Number(item.sellPrice).toLocaleString()}${Number(item.buyboxAvg) > 0 ? `<span style="color:#2b6cb0;"> / bb ¥${Number(item.buyboxAvg).toLocaleString()}</span>` : ''}</span>
-                    <span style="color:#07A27B;">仕入値: ¥${Number(item.buyPrice).toLocaleString()}</span>
+                    <span>予定売価: ¥${bs.sell.toLocaleString()}${bbMark}</span>
+                    <span style="color:#07A27B;">仕入値: ¥${bs.buy.toLocaleString()}</span>
                   </div>
                   <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold; color:#4a5568;">
                     <span>最安売価: ¥${Number(item.minUsed).toLocaleString()}</span>
@@ -6530,9 +6560,13 @@ async function syncPatrolData() {
         } else {
           // 取れたぶんを手元のリストにも反映して、そのまま描き直す
           const map = json.results || {};
+          const buyMap = json.buyResults || {};
           globalResearcherData.forEach(x => {
             const v = Number(map[x.asin] || 0);
             if (v > 0) x.buyboxAvg = v;
+            // buybox基準の仕入値も入れておく(設定がB・Cならこの場で表示が切り替わる)
+            const bvv = Number(buyMap[x.asin] || 0);
+            if (bvv > 0) x.buyboxBuyPrice = bvv;
           });
           renderResearcherList();
           alert(json.message + (typeof json.tokensLeft === 'number' ? '\n残トークン ' + json.tokensLeft : ''));

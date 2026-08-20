@@ -4045,13 +4045,14 @@ async function syncPatrolData() {
         }
         // メルカリは売り切れ(実際に売れた値段)だけを出す。除外ワードは専用の欄に入れる。
         //   並びは出品が新しい順(メルカリに「売れた順」は無い)。
-        //   値段は、その行に出ている予定売価を上限にして、下限はその半分。
-        //   巡回のURLと同じ形なので、安すぎるジャンクや部品取りが混ざらない。
+        //   値段は、その行に出ている仕入値を上限にして、下限はその半分。
+        //   巡回が張っているURLとまったく同じ金額なので、
+        //   「この値段以下で売れているか」がそのまま見える。
         function openMercariMarket(index) {
           const base = researcherKeywordOf(index);
           if (!base) return;
           const item = (typeof globalResearcherData !== 'undefined' && globalResearcherData[index]) || {};
-          const max = Math.floor(Number(researcherBasis(item).sell) || 0);
+          const max = Math.floor(Number(researcherBasis(item).buy) || 0);
           const min = Math.floor(max / 2);
           const ng = researcherNgWords().join(' ');
           let url = `https://jp.mercari.com/search?keyword=${encodeURIComponent(base)}&status=sold_out&sort=created_time&order=desc`;

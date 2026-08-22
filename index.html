@@ -4036,12 +4036,18 @@ async function syncPatrolData() {
           return base;
         }
         // ヤフオクは落札相場(終わった取引)。夜の自動確認とまったく同じURLの形。
+        //   値段は、その行に出ている仕入値が上限、その半分が下限。
+        //   夜が数えている「仕入値以下で落札された件数」と同じ条件で開く。
+        //   仕入値が入っていない行は、値段を付けずに開く。
         function openYahooMarket(index) {
           const base = researcherKeywordOf(index);
           if (!base) return;
+          const item = (typeof globalResearcherData !== 'undefined' && globalResearcherData[index]) || {};
+          const max = Math.floor(Number(researcherBasis(item).buy) || 0);
+          const priceQuery = max > 0 ? `&aucminprice=${Math.floor(max / 2)}&aucmaxprice=${max}` : '';
           const ng = researcherNgWords().map(w => '-' + w).join(' ');
           const kw = encodeURIComponent(ng ? (base + ' ' + ng) : base);
-          window.open(`https://auctions.yahoo.co.jp/closedsearch/closedsearch?p=${kw}&va=${kw}&b=1&n=100&exflg=1`, '_blank');
+          window.open(`https://auctions.yahoo.co.jp/closedsearch/closedsearch?p=${kw}&va=${kw}${priceQuery}&b=1&n=100&exflg=1`, '_blank');
         }
         // メルカリは売り切れ(実際に売れた値段)だけを出す。除外ワードは専用の欄に入れる。
         //   並びは出品が新しい順(メルカリに「売れた順」は無い)。
@@ -4220,7 +4226,7 @@ async function syncPatrolData() {
                     <span>値動き: ${trendCell(item)}</span>
                   </div>
                   <div style="font-size:11px; font-weight:bold; color:#4a5568; margin-top:4px;">
-                    ヤフオク落札: ${marketCountLabel(item)}
+                    ヤフオク落札(仕入値以下): ${marketCountLabel(item)}
                   </div>
                 </div>
 

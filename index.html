@@ -4672,6 +4672,7 @@ async function syncPatrolData() {
         if (isSold) {
           priceBlock = `
             <div style="font-size:11px; color:#718096; line-height:1.6;">
+              仕入: <span style="color:#333; font-weight:bold;">¥${Number(b_price).toLocaleString()}</span><br>
               売上: <span style="color:#333; font-weight:bold;">¥${Number(item.sales || 0).toLocaleString()}</span><br>
               送料: <span style="color:#333; font-weight:bold;">${item.shipping < 0 ? '' : '-'}¥${Math.abs(Number(item.shipping || 0)).toLocaleString()}</span>　
               手数料: <span style="color:#e53e3e; font-weight:bold;">${item.fee < 0 ? '' : '-'}¥${Math.abs(Number(item.fee || 0)).toLocaleString()}</span>

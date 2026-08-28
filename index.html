@@ -3474,6 +3474,14 @@ async function syncPatrolData() {
           if (st) st.value = '未販売';
           try { ledgerCurrentPage = 1; } catch (e) {}
           openView('view-ledger');
+          // 🌟【食い違いをその場で直す】自在庫の数は起動時に読んだきりなので、
+          //   販売済みに変わったあとも古い数字が残ることがある。
+          //   押して1件も無かったのなら、その数字はもう古い。取り直す。
+          try {
+            if (typeof loadOwnInventoryBackground === 'function') {
+              loadOwnInventoryBackground();
+            }
+          } catch (e) {}
         };
 
         let pendingRegData = {};
@@ -4957,6 +4965,10 @@ async function syncPatrolData() {
       alert(msg);
       if (typeof loadLedgerData === 'function') loadLedgerData();
       if (typeof loadExpenseListData === 'function') loadExpenseListData();
+      // 🌟【自在庫の数を取り直す】この数は起動時に1回読んだきりなので、
+      //   取り込みで販売済みに変わっても古い数字が残っていた。
+      //   （販売済みなのに「自在庫1」と出て、押すと1件も無い、という食い違い）
+      if (typeof loadOwnInventoryBackground === 'function') loadOwnInventoryBackground();
     }
     function handleDragOverMini(e) {
       e.preventDefault(); e.stopPropagation();

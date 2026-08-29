@@ -3123,6 +3123,13 @@ async function syncPatrolData() {
               asin = searchJson.products[0].asin;
             }
             const prodJson = await callKeepaViaServer({ kind: "product", asin: asin, stats: "90", buybox: true, history: true });
+            // 🌟【商品データが返ってこなかったとき】
+            //   以前はここで products[0] をそのまま取りにいって画面が落ちていた。
+            //   英語のエラーが出るだけで、待てばよいのか別の商品にすべきかが
+            //   分からなかった。理由ごとに、次にどうすればよいかまで出す。
+            if (!prodJson || !prodJson.products || prodJson.products.length === 0) {
+              throw new Error(keepaEmptyMessage(prodJson));
+            }
             const p = prodJson.products[0];
             const productTitle = p.title || fallbackTitle || '不明'; const modelNum = p.model || '不明';
             window.tmpTitle = productTitle;
@@ -3456,7 +3463,7 @@ async function syncPatrolData() {
             const msg = String((err && err.message) || '').trim();
             const known = msg && msg.indexOf('Keepaの取得に失敗') !== 0;
             resView.innerHTML = known
-              ? '<div class="card" style="color:#c05621; text-align:center; font-weight:bold; line-height:1.9;">' + escapeHtml(msg) + '</div>'
+              ? '<div class="card" style="color:#c05621; text-align:center; font-weight:bold; line-height:1.9;">' + escapeHtml(msg).replace(/\n/g, '<br>') + '</div>'
               : '<div class="card" style="color:#e53e3e; text-align:center; font-weight:bold;">❌ 解析エラーが発生しました</div>';
           }
         }
@@ -6840,6 +6847,22 @@ async function syncPatrolData() {
       window.__forceKeepaSearch = true;
       runAmazonResearch();
     };
+    // 🌟 Keepaから商品が返ってこなかった理由を、日本語にして返す。
+    //   残トークンが分かるときは数字も出す。あと何回ぶん待てばよいかの目安になる。
+    function keepaEmptyMessage(j) {
+      const left = (j && typeof j.tokensLeft === "number") ? j.tokensLeft : null;
+      const err = (j && j.error && (j.error.message || j.error)) ? String(j.error.message || j.error) : "";
+      if (left !== null && left < 3) {
+        return "⏳ Keepaのトークンが足りません（残り " + left + "）\n数分待つと戻ります。そのあともう一度押してください";
+      }
+      if (err) {
+        return "⚠️ Keepaからの返事: " + err;
+      }
+      if (j && Array.isArray(j.products)) {
+        return "📭 この商品のデータがKeepaにありません\n別の商品で試すか、Amazonのページを開いてURLを貼ってください";
+      }
+      return "❌ 商品データを取得できませんでした\n時間をおいて、もう一度押してください";
+    }
     async function callKeepaViaServer(payload) {
       const res = await fetchWithAuth(getManagerApiUrl(), {
         method: "POST",

@@ -4836,7 +4836,18 @@ async function syncPatrolData() {
           let txtSku = String(cols[txtH["sku"]] || "").replace(/^\s*SKU\s*[:：]\s*/i, "").trim();
           reportData.push({
             type: "TXT", isMerchant, sku: txtSku, orderId: cols[txtH["amazon-order-id"]],
-            date: String(cols[txtH["purchase-date"]] || "").split("T")[0].replace(/-/g, "/"),
+            // 🌟【注文日は日本時間で】注文レポートの purchase-date は時差つき(例: 2026-07-31T16:05:00+00:00)で来る。
+            //   "T" の前だけ切っていたため、世界時で書かれていると日本の0〜9時の注文が前の日、
+            //   月初なら前の月に入っていた。時差が書いてある時は日本時間に直してから日付にする。
+            date: (function (v) {
+              const s = String(v || "").trim();
+              const plain = s.split("T")[0].replace(/-/g, "/");
+              if (!/T\d{2}:\d{2}/.test(s) || !/(Z|[+-]\d{2}:?\d{2})$/.test(s)) return plain;
+              const t = new Date(s.replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
+              if (isNaN(t.getTime())) return plain;
+              const j = new Date(t.getTime() + 9 * 3600 * 1000);
+              return j.getUTCFullYear() + "/" + String(j.getUTCMonth() + 1).padStart(2, "0") + "/" + String(j.getUTCDate()).padStart(2, "0");
+            })(cols[txtH["purchase-date"]]),
             sales: cleanNum(cols[txtH["item-price"]]), shipping: cleanNum(cols[txtH["shipping-price"]]),
             // 🌟【送料の割引】Amazonは送料無料を「一旦請求して同額を割引」で書く。
             //   請求だけ見ると、もらっていない送料を売上に立ててしまう。

@@ -2482,9 +2482,9 @@
 
       // 🌟 写真が無い商品は、枠だけ置くと空白がぽっかり空くので何も置かない
       const thumbHtml = item.img
-        ? '<img class="pl-thumb" src="' + item.img + '" loading="lazy" alt="" onerror="this.onerror=null; this.style.display=\'none\';">'
+        ? '<img class="pl-thumb" src="' + escapeHtml(safeUrl(item.img)) + '" loading="lazy" alt="" onerror="this.onerror=null; this.style.display=\'none\';">'
         : '';
-      const titleHtml = '<div class="item-title"><a href="' + item.url + '" target="_blank" data-key="' + uniqueKey + '" data-url="' + item.url + '" onclick="markAsRead(this)">💎 ' + escapeHtml(item.title) + '</a></div>';
+      const titleHtml = '<div class="item-title"><a href="' + escapeHtml(safeUrl(item.url) || '#') + '" target="_blank" data-key="' + escapeHtml(uniqueKey) + '" data-url="' + escapeHtml(item.url) + '" onclick="markAsRead(this)">💎 ' + escapeHtml(item.title) + '</a></div>';
       const headHtml = function (inner) {
         return '<div class="pl-head">' + thumbHtml + '<div class="pl-hd">' + titleHtml + inner + '</div></div>';
       };
@@ -2622,7 +2622,7 @@ async function syncPatrolData() {
                   let htmlStr = buildPatrolCardBody(item, gasSiteName, dateTimeText, uniqueKey);
                   if (item.asin && item.asin !== "undefined") {
                     htmlStr += '<div style="margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:10px;">' +
-                      '<button class="auto-asin-btn" data-key="' + uniqueKey + '" data-url="' + item.url + '" onclick="markAsRead(this); openView(\'view-amazon\'); jumpToAmazonResearch(\'' + escapeHtml(item.asin) + '\', \'' + escapeHtml(item.title) + '\', \'' + item.url + '\', \'' + escapeHtml(String(item.price || '')) + '\', \'' + escapeHtml(gasSiteName.replace(/^S/, '')) + '\')">' +
+                      '<button class="auto-asin-btn" data-key="' + escapeHtml(uniqueKey) + '" data-url="' + escapeHtml(item.url) + '" onclick="markAsRead(this); openView(\'view-amazon\'); jumpToAmazonResearch(' + jsArg(item.asin) + ', ' + jsArg(item.title) + ', ' + jsArg(safeUrl(item.url)) + ', ' + jsArg(String(item.price || '')) + ', ' + jsArg(gasSiteName.replace(/^S/, '')) + ')">' +
                       '<span style="font-size:14px;">📦</span> ASIN: ' + escapeHtml(item.asin) + ' で一発解析</button></div>';
                   }
                   card.innerHTML = htmlStr; container.appendChild(card);
@@ -2793,7 +2793,12 @@ async function syncPatrolData() {
           return `${y}/${m}/${d} ${h}:${min}`;
         }
     
-    function escapeHtml(str) { if(!str) return ""; return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+    function escapeHtml(str) { if(!str) return ""; return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    // 🌟【安全】外から来たURLは http/https のときだけ使う。javascript: などは空にする。
+    function safeUrl(u) { const s = String(u == null ? "" : u).trim(); return /^https?:\/\//i.test(s) ? s : ""; }
+    // 🌟【安全】onclick の中に文字を入れるときはこれを使う。
+    //   出品タイトルなどに ' や \ が入っていても、JSの文字列の外に出られない。
+    function jsArg(v) { return escapeHtml(JSON.stringify(String(v == null ? "" : v))); }
         function openManager() { const url = AppStorage.get("sh_ssurl", ""); if (!url) { openConfig(); return alert("⚙️設定から販売管理シートのURLを設定してください！"); } window.open(url, "_blank"); }
         async function searchHistory() {
           const asin = document.getElementById('historyAsin').value.trim(); const resDiv = document.getElementById('historyResult');
@@ -2841,7 +2846,7 @@ async function syncPatrolData() {
           //   そのまま数値にすると NaN になっていた。
           const priceNum = parseInt(String(itemPrice || "").replace(/[^0-9]/g, ""), 10);
           patrolOrigin = itemUrl
-            ? { url: itemUrl, price: isNaN(priceNum) ? 0 : priceNum, site: siteName || "" }
+            ? { url: safeUrl(itemUrl), price: isNaN(priceNum) ? 0 : priceNum, site: siteName || "" }
             : null;
           document.getElementById("amazonKw").value = asin;
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3140,8 +3145,8 @@ async function syncPatrolData() {
             } else if (p.imagesCSV) imgRaw = p.imagesCSV.split(',')[0];
             let imageUrl = imgRaw ? (imgRaw.startsWith('http') ? imgRaw : 'https://images-na.ssl-images-amazon.com/images/I/' + imgRaw) : '';
             window.tmpImg = imageUrl;
-            const avgUsed = p.stats.avg90 && p.stats.avg90[2] !== -1 ? p.stats.avg90[2] : 0;
-            const minUsed = p.stats.current && p.stats.current[2] !== -1 ? p.stats.current[2] : 0;
+            const avgUsed = (p.stats.avg90 && typeof p.stats.avg90[2] === 'number' && p.stats.avg90[2] > 0) ? p.stats.avg90[2] : 0;
+            const minUsed = (p.stats.current && typeof p.stats.current[2] === 'number' && p.stats.current[2] > 0) ? p.stats.current[2] : 0;
             
             const referralFeePercent = p.referralFeePercentage || 10;
             
@@ -3187,8 +3192,8 @@ async function syncPatrolData() {
               }
             }
             // ★ Keepaの11番（中古出品者数）を正確に取得
-            const usedOffers = (p.stats.current && p.stats.current[12] !== -1) ? p.stats.current[12] : 0;
-            const usedCountAvg90 = (p.stats.avg90 && p.stats.avg90[12] !== -1) ? p.stats.avg90[12] : usedOffers;
+            const usedOffers = (p.stats.current && typeof p.stats.current[12] === 'number' && p.stats.current[12] > 0) ? p.stats.current[12] : 0;
+            const usedCountAvg90 = ((p.stats.avg90 && typeof p.stats.avg90[12] === 'number' && p.stats.avg90[12] > 0) ? p.stats.avg90[12] : 0) || usedOffers;
             const fbaFee = p.fbaFees ? (p.fbaFees.totalFee || p.fbaFees.pickAndPackFee || 430) : 430;
             
             // 👇 この2行を追加や
@@ -5200,7 +5205,9 @@ async function syncPatrolData() {
     async function deleteLedgerItem() {
       if(!confirm("本当にこの商品を削除してもよろしいですか？\n※一括商品登録シートにデータがある場合はそれも連動して削除されます。")) return;
       
-      const no = document.getElementById('edit_no').value;
+      // 🌟【消す行は開いた時のNoで決める】以前は編集欄の No を使っていたため、
+      //   No を打ち変えてから削除を押すと、別の商品(打ち変えた番号の行)が消えていた。
+      const no = document.getElementById('original_no').value || document.getElementById('edit_no').value;
       const btn = document.getElementById('deleteLedgerBtn');
       const originalText = btn.innerHTML;
       btn.innerHTML = "⌛ 削除中...";

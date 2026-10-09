@@ -1617,6 +1617,19 @@
       }
     }
 
+    // 🌟【プランの外の画面】見るだけの画面で、サーバーが「このプランでは使えない」と返してきた時に、
+    //   空の一覧のかわりに、その画面の中に説明を出す。ポップアップは出さない。
+    //   (以前は黙って空を返していたので、データが無いだけに見えていた)
+    function planLockHtml(r, asRow) {
+      const label = r && r.requiredPlan === "kiwami" ? "NEXT極" : "NEXT";
+      const feature = (r && r.feature) ? String(r.feature) : "この機能";
+      const box = '<div class="plan-lock-box" style="text-align:center; padding:24px 12px; color:#4a5568; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:10px; line-height:1.7;">' +
+        '<div style="font-size:15px; font-weight:bold; color:#1a365d; margin-bottom:6px;">🔒 ' + escapeHtml(feature) + 'は ' + label + ' プランの機能です</div>' +
+        '<div style="font-size:12px;">今のご契約のプランではご利用いただけません。<br>' + label + ' プランにお申し込みいただくと使えるようになります。</div>' +
+        '</div>';
+      return asRow ? '<tr><td colspan="6" style="padding:16px;">' + box + '</td></tr>' : box;
+    }
+
     function closePlanLockedNotice() {
       const el = document.getElementById("plan-locked-modal");
       if (el) el.style.display = "none";
@@ -2608,7 +2621,10 @@ async function syncPatrolData() {
               const container = document.getElementById(divId);
               const currentItems = globalHistoryData[gasSiteName] || []; container.innerHTML = "";
               const patrolErrMsg = patrolErr[/^S/.test(gasSiteName) ? 'sniper' : 'watcher'];
-              if (currentItems.length === 0 && patrolErrMsg) {
+              const patrolLock = /^S/.test(gasSiteName) ? (resSniper && resSniper.planLocked ? resSniper : null) : (res10 && res10.planLocked ? res10 : null);
+              if (currentItems.length === 0 && patrolLock) {
+                container.innerHTML = planLockHtml(patrolLock);
+              } else if (currentItems.length === 0 && patrolErrMsg) {
                 container.innerHTML = '<div class="no-data" style="color:#c53030;">⚠️ 巡回リストを読み込めませんでした(' + escapeHtml(patrolErrMsg) + ')。少し待ってから更新してください。</div>';
               } else if (currentItems.length === 0) {
                 container.innerHTML = '<div class="no-data">「' + gasSiteName.replace(/^S/, '') + '」に現在、新着・利益商品は見つかっていません。</div>';
@@ -4184,6 +4200,12 @@ async function syncPatrolData() {
             } catch(e) {
               throw new Error("GASエラー発生中: " + text.substring(0, 40) + "...");
             }
+            if (json.success && json.planLocked) {
+              globalResearcherData = [];
+              document.getElementById('resCount').innerText = "🔒";
+              resDiv.innerHTML = planLockHtml(json);
+              return;
+            }
             if (json.success && json.processing) {
               globalResearcherData = [];
               document.getElementById('resCount').innerText = `⌛ 処理中（残り${json.remaining}件）`;
@@ -5572,6 +5594,12 @@ async function syncPatrolData() {
         
         const json = await res.json();
         
+        if (json.success && json.planLocked) {
+          globalPurchaseListData = [];
+          resDiv.innerHTML = planLockHtml(json, true);
+          countEl.innerText = "🔒";
+          return;
+        }
         if (json.success && json.data && json.data.length > 0) {
           globalPurchaseListData = json.data;
           renderPurchaseList();
@@ -7191,6 +7219,7 @@ async function syncPatrolData() {
         const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "getSellerGroupProgress" }) });
         const result = await res.json();
         if (!result.success) { box.innerHTML = '取得に失敗しました'; return; }
+        if (result.planLocked) { box.innerHTML = planLockHtml(result); return; }
         if (result.totalSellers === 0) {
           box.innerHTML = '<div style="color:#a0aec0;">承認済みセラーがまだいません</div>';
           return;
@@ -7216,6 +7245,7 @@ async function syncPatrolData() {
         });
         const result = await res.json();
         if (!result.success) { container.innerHTML = '<div style="text-align:center; color:#e53e3e; padding:20px;">取得に失敗しました</div>'; return; }
+        if (result.planLocked) { container.innerHTML = planLockHtml(result); return; }
         const list = result.data || [];
         if (list.length === 0) {
           container.innerHTML = `<div style="text-align:center; color:#a0aec0; padding:20px;">${status === "approved" ? "承認済みのセラーはまだいません" : "一時保管所は空です"}</div>`;
@@ -7496,6 +7526,7 @@ async function syncPatrolData() {
         const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "getPatrolProgress", scope: currentProgressScope }) });
         const result = await res.json();
         if (!result.success) { summaryEl.innerHTML = '<div style="text-align:center; color:#e53e3e; padding:16px;">取得に失敗しました</div>'; return; }
+        if (result.planLocked) { summaryEl.innerHTML = planLockHtml(result); activityEl.innerHTML = ''; return; }
         const progress = result.progress || {};
         const siteNames = Object.keys(progress);
         if (siteNames.length === 0) {
@@ -7610,6 +7641,7 @@ async function syncPatrolData() {
         const res = await fetchWithAuth(mgrUrl, { method: "POST", body: JSON.stringify({ command: "getJobLogs" }) });
         const result = await res.json();
         if (!result.success) { container.innerHTML = '<div style="text-align:center; color:#e53e3e; padding:20px;">取得に失敗しました</div>'; return; }
+        if (result.planLocked) { container.innerHTML = planLockHtml(result); return; }
         const logs = result.data || [];
         if (logs.length === 0) {
           container.innerHTML = '<div style="text-align:center; color:#a0aec0; padding:20px;">まだログがありません</div>';

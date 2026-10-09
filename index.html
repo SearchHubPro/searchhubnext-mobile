@@ -609,7 +609,7 @@
         <button class="dash-btn" onclick="openView('view-seller-pending'); loadSellerCandidates('pending');"><i class="fas fa-hourglass-half" style="color:#d69e2e;"></i>セラー一時保管所</button>
         <button class="dash-btn" onclick="openView('view-seller-approved'); loadSellerCandidates('approved');"><i class="fas fa-check-circle" style="color:#38a169;"></i>セラーリスト</button>
         <button class="dash-btn" onclick="openView('view-category-search'); loadSellerGroupProgress();"><i class="fas fa-layer-group" style="color:#3182ce;"></i>セラーグループ進捗</button>
-        <button class="dash-btn" onclick="openView('view-researcher-settings'); switchResearcherSettingTab('general');"><i class="fas fa-sliders-h" style="color:#4a5568;"></i>リサーチャー設定</button>
+        <button class="dash-btn" onclick="openView('view-researcher-settings'); switchResearcherSettingTab('general', true);"><i class="fas fa-sliders-h" style="color:#4a5568;"></i>リサーチャー設定</button>
       </div>
     </div>
   </div>
@@ -2582,6 +2582,10 @@ async function syncPatrolData() {
             if (urlSniper) fetchPromises.push(fetchWithAuth(urlSniper + "?command=mobileData&scope=sniper" + cacheBuster).then(r => r.json()).catch(() => null)); else fetchPromises.push(Promise.resolve(null));
             if (url10) fetchPromises.push(fetchWithAuth(url10 + "?command=mobileData&scope=watcher" + cacheBuster).then(r => r.json()).catch(() => null)); else fetchPromises.push(Promise.resolve(null));
             const [resSniper, res10] = await Promise.all(fetchPromises);
+            // 🌟【失敗を「新着なし」と言わない】通信が切れた・ライセンスが止まった等で
+            //   読み込めなかった時も「見つかっていません」と出ていたので、理由を出す。
+            const patrolErrOf = (url, res) => (!url) ? "" : (!res ? "通信できませんでした" : (res.error ? String(res.error) : ""));
+            const patrolErr = { sniper: patrolErrOf(urlSniper, resSniper), watcher: patrolErrOf(url10, res10) };
             hideLoader();
             // 💡 追加：GASから送られてきた「みんなの共通既読リスト」を受け取って合体させる！
             let sharedLinks = [];
@@ -2603,7 +2607,10 @@ async function syncPatrolData() {
             for (const [divId, gasSiteName] of Object.entries(siteKeyMap)) {
               const container = document.getElementById(divId);
               const currentItems = globalHistoryData[gasSiteName] || []; container.innerHTML = "";
-              if (currentItems.length === 0) {
+              const patrolErrMsg = patrolErr[/^S/.test(gasSiteName) ? 'sniper' : 'watcher'];
+              if (currentItems.length === 0 && patrolErrMsg) {
+                container.innerHTML = '<div class="no-data" style="color:#c53030;">⚠️ 巡回リストを読み込めませんでした(' + escapeHtml(patrolErrMsg) + ')。少し待ってから更新してください。</div>';
+              } else if (currentItems.length === 0) {
                 container.innerHTML = '<div class="no-data">「' + gasSiteName.replace(/^S/, '') + '」に現在、新着・利益商品は見つかっていません。</div>';
               } else {
                 currentItems.forEach(function(item) {
@@ -2676,12 +2683,17 @@ async function syncPatrolData() {
           try {
             const settingsUrl = getSettingsApiUrl();
             if (settingsUrl) {
-              await fetchWithAuth(settingsUrl, {
+              // 🌟 サーバーに入らなかった時は知らせる。夜の自動処理はサーバー側の値で動くので、
+              //   黙っていると「保存したのに古いKeepaキーで動く」ことになる。
+              const putRes = await fetchWithAuth(settingsUrl, {
                 method: "PUT",
                 body: JSON.stringify({ keepa_api_key: keepaKey, seller_id: sellerId })
               });
+              let putOk = putRes && putRes.ok;
+              try { const pj = await putRes.json(); if (pj && pj.success === false) putOk = false; } catch (e2) {}
+              if (!putOk) alert("⚠️ この端末には保存しましたが、サーバーへの保存に失敗しました。\nライセンスキーが正しいか確かめて、もう一度保存してください。\n（夜の自動処理は、前のKeepaキーのまま動きます）");
             }
-          } catch (e) {}
+          } catch (e) { alert("⚠️ この端末には保存しましたが、サーバーに届きませんでした。\n電波の良い所で、もう一度保存してください。"); }
           closeConfig(); syncPatrolData(); fetchDashboardData();
         }
         
@@ -4511,8 +4523,12 @@ async function syncPatrolData() {
         }
         function csvEscape(val) {
           if (val === null || val === undefined) return '';
-          const s = String(val);
-          if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          let s = String(val);
+          // 🌟【Excelで数式として動かさない】= + - @ やタブで始まる文字は、Excelが数式として読む。
+          //   商品名・URL・説明・仕入先は外から入ってくる文字なので、頭に ' を付けて文字のまま開かせる。
+          //   数(利益のマイナスなど)はそのまま出す。
+          if (typeof val !== 'number' && /^[=+\-@\t\r]/.test(s) && !/^[-+]?\d+(\.\d+)?$/.test(s)) s = "'" + s;
+          if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
             return '"' + s.replace(/"/g, '""') + '"';
           }
           return s;
@@ -6197,7 +6213,11 @@ async function syncPatrolData() {
         container.appendChild(cardBlock);
       }
     }
+    // 🌟 情報設定を読み込めたかどうか。読めていないまま保存すると、
+    //   仕入先が「読込失敗」の1行に、カード5枠が空に置き換わっていた。
+    let infoSettingsLoaded = false;
     async function loadInfoSettingsView() {
+      infoSettingsLoaded = false;
       renderInfoCardInputs();
       
       const ssUrl = AppStorage.get("sh_ssurl", "");
@@ -6211,6 +6231,7 @@ async function syncPatrolData() {
         });
         const data = await res.json();
         if (data.success) {
+          infoSettingsLoaded = true;
           document.getElementById('info-suppliers').value = data.suppliers.join('\n');
           document.getElementById('info-cond-c').value = data.conditions.c || "";
           document.getElementById('info-cond-d').value = data.conditions.d || "";
@@ -6244,6 +6265,10 @@ async function syncPatrolData() {
       }
     }
     async function saveInfoSettingsView() {
+      if (!infoSettingsLoaded) {
+        alert("⚠️ 今の設定を読み込めていないので、保存しません。\n（このまま保存すると仕入先やカードが消えてしまうため）\n画面を開き直してから、もう一度お試しください。");
+        return;
+      }
       const ssUrl = AppStorage.get("sh_ssurl", "");
       let targetGasUrl = AppStorage.get("sh_tensite_url", "") || AppStorage.get("sh_sniper_url", "");
       const btn = event.target;
@@ -7255,7 +7280,9 @@ async function syncPatrolData() {
     // =========================================================
     // リサーチャー設定(各種設定/バッチ設定/ランク選別設定/セラー抽出設定)
     // =========================================================
-    function switchResearcherSettingTab(tabKey) {
+    // 🌟 リサーチャー設定を読み込めたかどうか
+    let rsLoaded = false;
+    function switchResearcherSettingTab(tabKey, reload) {
       document.querySelectorAll('.rsetting-panel').forEach(p => p.style.display = 'none');
       const tabs = { general: 'rtab-btn-general', batch: 'rtab-btn-batch', rank: 'rtab-btn-rank', seller: 'rtab-btn-seller' };
       Object.values(tabs).forEach(id => { const el = document.getElementById(id); if (el) { el.style.background = '#edf2f7'; el.style.color = '#4a5568'; } });
@@ -7263,7 +7290,9 @@ async function syncPatrolData() {
       if (panel) panel.style.display = 'block';
       const btn = document.getElementById(tabs[tabKey]);
       if (btn) { btn.style.background = '#1a365d'; btn.style.color = 'white'; }
-      loadResearcherSettings();
+      // 🌟 開いた時だけ読み込む。タブを切り替えるたびに読み直していたため、
+      //   保存前に変えた値がサーバーの値に戻っていた。
+      if (reload || !rsLoaded) loadResearcherSettings();
     }
     // 🌟 カテゴリー番号は Amazon のストアページ(node=) で確認したもの。
     //   以前は3つずれており、設定でチェックしたカテゴリーと
@@ -7307,6 +7336,7 @@ async function syncPatrolData() {
         </label>`).join("");
     }
     async function loadResearcherSettings() {
+      rsLoaded = false;
       const apiKey = AppStorage.get("sh_supabase_key", "");
       const settingsUrl = getSettingsApiUrl();
       if (!apiKey || !settingsUrl) return;
@@ -7340,23 +7370,33 @@ async function syncPatrolData() {
         document.getElementById("rs-minStock").value = d.min_seller_stock ?? 80;
         document.getElementById("rs-maxStock").value = d.max_seller_stock ?? 300;
         document.getElementById("rs-sellerAutoApprove").checked = d.seller_auto_approve === true;
+        rsLoaded = true;
       } catch (e) {}
     }
     async function saveResearcherSettings() {
       const apiKey = AppStorage.get("sh_supabase_key", "");
       const settingsUrl = getSettingsApiUrl();
       if (!apiKey || !settingsUrl) { alert("先に⚙️設定でライセンスキーを入力してください！"); return; }
+      // 🌟 読み込めていないまま保存すると、残すランクが0件・カテゴリーが0件で上書きされていた
+      if (!rsLoaded) { alert("⚠️ 今の設定を読み込めていないので、保存しません。\n画面を開き直してから、もう一度お試しください。"); return; }
+      // 🌟 0 を入れた欄は 0 のまま保存する(以前は 0 が既定値に化けていた)。空欄の時だけ既定値。
+      const rsNum = (id, def, isFloat) => {
+        const raw = String(document.getElementById(id).value ?? "").trim();
+        if (raw === "") return def;
+        const n = isFloat ? parseFloat(raw) : parseInt(raw, 10);
+        return isNaN(n) ? def : n;
+      };
       const keepRanks = Array.from(document.querySelectorAll(".rs-keepRank:checked")).map(cb => cb.value);
       const categoryIds = Array.from(document.querySelectorAll(".rs-category:checked")).map(cb => parseInt(cb.value, 10));
       const payload = {
-        profit_margin: parseFloat(document.getElementById("rs-profitMargin").value) || 20,
+        profit_margin: rsNum("rs-profitMargin", 20, true),
         // 🌟 仕入値基準設定に一本化。DBの列は2つ残っているので、同じ値を入れておく
         watcher_mode: document.getElementById("rs-watcherMode").value,
         sniper_mode: document.getElementById("rs-watcherMode").value,
         exclude_words: document.getElementById("rs-excludeWords").value,
         exclude_brands: document.getElementById("rs-excludeBrands").value,
         max_urls_per_run: parseInt(document.getElementById("rs-maxUrls").value, 10) || 3,
-        min_record_count: parseInt(document.getElementById("rs-minRecordCount").value, 10) || 3,
+        min_record_count: rsNum("rs-minRecordCount", 3),
         drop_price_down_percent: parseInt(document.getElementById("rs-dropPriceDown").value, 10) || 0,
         drop_saturated_offers: parseInt(document.getElementById("rs-dropSaturated").value, 10) || 0,
         target_category_ids: categoryIds,
@@ -7366,9 +7406,9 @@ async function syncPatrolData() {
         fba_fee_default: parseFloat(document.getElementById("rs-fbaFeeDefault").value) || null,
         keep_ranks: keepRanks,
         keep_rare: document.getElementById("rs-keepRare").checked,
-        min_review_count: parseInt(document.getElementById("rs-minReview").value, 10) || 50,
+        min_review_count: rsNum("rs-minReview", 50),
         max_review_count: parseInt(document.getElementById("rs-maxReview").value, 10) || 500,
-        min_seller_stock: parseInt(document.getElementById("rs-minStock").value, 10) || 80,
+        min_seller_stock: rsNum("rs-minStock", 80),
         max_seller_stock: parseInt(document.getElementById("rs-maxStock").value, 10) || 300,
         seller_auto_approve: document.getElementById("rs-sellerAutoApprove").checked,
       };

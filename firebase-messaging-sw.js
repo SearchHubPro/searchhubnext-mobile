@@ -62,7 +62,7 @@ messaging.onBackgroundMessage((payload) => {
   const tag = `sh-notify-${title}-${body}`.substring(0, 100);
   return self.registration.showNotification(title, {
     body,
-    icon: "https://i.ibb.co/Tx2N76YL/icon.png",
+    icon: "https://searchhubpro.github.io/searchhubnext-mobile/images/icon-192.png",
     data: { url: link, kind },
     tag,
     renotify: false

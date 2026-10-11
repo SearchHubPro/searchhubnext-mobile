@@ -47,10 +47,6 @@
     
     .header-btn { background: none; border: none; color: #333; font-size: 18px; cursor: pointer; outline: none; padding: 5px; transition: transform 0.5s ease; display: flex; align-items: center; justify-content: center;}
     .last-update { display: none !important; }  
-    .discord-btn { font-size: 20px; transition: color 0.3s, transform 0.1s; }
-    .discord-btn:active { transform: scale(0.9); }
-    .discord-on { color: #5865F2 !important; }
-    .discord-off { color: #4a5568 !important; opacity: 0.4; }
     .view { display: none; padding-top: 0 !important; margin-top: 0 !important; }
     .view.active { display: block; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -2425,7 +2421,6 @@
     }
     document.addEventListener("DOMContentLoaded", function() {
       try { globalViewedLinks = JSON.parse(AppStorage.get("sh_viewed_links", "[]")); } catch(e) { globalViewedLinks = []; }
-      updateDiscordBtnUI(AppStorage.get("sh_discord_toggle", "off"));
       setupSwipe();
       fetchConditionList();
       
@@ -2612,7 +2607,6 @@ async function syncPatrolData() {
             let mergedSites = {};
             if (resSniper && !resSniper.error && resSniper.sites) {
               mergedSites['Sメルカリ'] = resSniper.sites['メルカリ'] || []; mergedSites['Sヤフフリ'] = resSniper.sites['ヤフーフリマ'] || []; mergedSites['Sオフモ'] = resSniper.sites['オフモール'] || [];
-              if (resSniper.discordStatus) { AppStorage.set("sh_discord_toggle", resSniper.discordStatus); updateDiscordBtnUI(resSniper.discordStatus); }
             }
             if (res10 && !res10.error && res10.sites) Object.assign(mergedSites, res10.sites);
             document.getElementById("lastUpdate").innerText = "最終更新: " + Utilities_formatDate(new Date());
@@ -2711,26 +2705,6 @@ async function syncPatrolData() {
             }
           } catch (e) { alert("⚠️ この端末には保存しましたが、サーバーに届きませんでした。\n電波の良い所で、もう一度保存してください。"); }
           closeConfig(); syncPatrolData(); fetchDashboardData();
-        }
-        
-        function updateDiscordBtnUI(status) {
-          const btn = document.getElementById("dcToggleBtn");
-          if (!btn) return;
-          btn.className = status === "on" ? "header-btn discord-btn discord-on" : "header-btn discord-btn discord-off";
-        }
-        
-        async function toggleDiscord() {
-          const sniperUrl = AppStorage.get("sh_sniper_url", "");
-          if (!sniperUrl) return alert("⚙️設定画面から『S(スナイパー)側 GAS URL』を先に登録してください！");
-          let currentStatus = AppStorage.get("sh_discord_toggle", "off");
-          let nextStatus = currentStatus === "on" ? "off" : "on";
-          updateDiscordBtnUI(nextStatus);
-          try {
-            const res = await fetchWithAuth(sniperUrl, { method: 'POST', body: JSON.stringify({ command: 'toggleDiscord', status: nextStatus }) });
-            const json = await res.json();
-            if (json.success) AppStorage.set("sh_discord_toggle", nextStatus);
-            else { updateDiscordBtnUI(currentStatus); alert("設定の同期に失敗したわ。"); }
-          } catch(e) { updateDiscordBtnUI(currentStatus); alert("通信エラーが発生しました。"); }
         }
         
         // 🚀 ステップ②: グラフの左右スワイプ対応版 setupSwipe & swipeToTab

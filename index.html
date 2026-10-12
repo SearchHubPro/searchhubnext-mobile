@@ -116,6 +116,12 @@
     .tab-btn.active { color: #2b6cb0; border-bottom-color: #2b6cb0; background-color: #ebf8ff; }
     .tab-dot { display: none; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; background-color: #e53e3e; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
     .tab-dot.active { display: block; animation: pop 0.3s ease; }
+    /* 🌟【AI精査】対象外(あかん)の商品は、ふだんは隠す。「対象外」ボタンで一時的に出せる */
+    body:not(.show-ai-out) .ai-out-card { display: none; }
+    .ai-out-note { display: none; }
+    body:not(.show-ai-out) .ai-out-note { display: block; }
+    .ai-out-toggle { background:#edf2f7; color:#718096; border:none; border-radius:6px; padding:8px 10px; font-size:12px; font-weight:bold; cursor:pointer; flex-shrink:0; white-space:nowrap; }
+    body.show-ai-out .ai-out-toggle { background:#718096; color:#fff; }
     @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
     
     .content { padding: 16px 12px 12px 12px; min-height: 80vh; transform: translate3d(0,0,0); }   
@@ -1090,6 +1096,7 @@
         <button class="tab-btn" onclick="switchTab('sniper-paypay', this, 'view-sniper')">ヤフフリ<span class="tab-dot"></span></button>
         <button class="tab-btn" onclick="switchTab('sniper-offmall', this, 'view-sniper')">オフモ<span class="tab-dot"></span></button>
       </div>
+      <button class="ai-out-toggle" data-scope="sniper" onclick="toggleAiOut()" style="display:none;">対象外</button>
       <button onclick="syncPatrolData()" style="background:#edf2f7; color:#4a5568; border:none; border-radius:6px; padding:8px 10px; font-size:13px; cursor:pointer;"><i class="fas fa-sync-alt"></i></button>
     </div>
     <div class="content" id="content-sniper">
@@ -1113,6 +1120,7 @@
         <button class="tab-btn" onclick="switchTab('watcher-aupay', this, 'view-watcher')">au PAY<span class="tab-dot"></span></button>
         <button class="tab-btn" onclick="switchTab('watcher-trefac', this, 'view-watcher')">トレファク<span class="tab-dot"></span></button>
       </div>
+      <button class="ai-out-toggle" data-scope="watcher" onclick="toggleAiOut()" style="display:none;">対象外</button>
       <button onclick="syncPatrolData()" style="background:#edf2f7; color:#4a5568; border:none; border-radius:6px; padding:8px 10px; font-size:13px; cursor:pointer; flex-shrink:0;"><i class="fas fa-sync-alt"></i></button>
     </div>
     <div class="content" id="content-watcher">
@@ -2346,12 +2354,30 @@
       }
       window.scrollTo(0,0);
     }
+    // =========================================================
+    // 🌟【AI精査】対象外(あかん)の表示切り替え
+    //   ふだんは隠す。「対象外 ◯件」を押すと一時的に出し、もう一度押すと隠す。
+    //   AIの判定が付かない人(AI精査を使っていない人)には、ボタンごと出ない。
+    //   赤い点(未読)は、表示中でも対象外を数えない。
+    // =========================================================
+    function aiOutShown() { return AppStorage.get('sh_show_ai_out', '0') === '1'; }
+    function applyAiOut() {
+      const shown = aiOutShown();
+      document.body.classList.toggle('show-ai-out', shown);
+      document.querySelectorAll('.ai-out-toggle').forEach(function (b) {
+        const box = document.getElementById('content-' + b.getAttribute('data-scope'));
+        const n = box ? box.querySelectorAll('.ai-out-card').length : 0;
+        b.style.display = n > 0 ? '' : 'none';
+        b.textContent = shown ? '対象外を隠す' : '対象外 ' + n + '件';
+      });
+    }
+    function toggleAiOut() { AppStorage.set('sh_show_ai_out', aiOutShown() ? '0' : '1'); applyAiOut(); }
     function recalcBadges() {
       let totalSniper = 0; let totalWatcher = 0;
       for (const [divId, gasSiteName] of Object.entries(siteKeyMap)) {
         const container = document.getElementById(divId);
         if(!container) continue;
-        const unreadCount = container.querySelectorAll('.card.is-new-item:not(.read-card)').length;
+        const unreadCount = container.querySelectorAll('.card.is-new-item:not(.read-card):not(.ai-out-card)').length;
         if (divId.startsWith('sniper-')) totalSniper += unreadCount;
         if (divId.startsWith('watcher-')) totalWatcher += unreadCount;
         const tabBtn = document.querySelector(`button[onclick*="'${divId}'"]`);
@@ -2675,7 +2701,7 @@ async function syncPatrolData() {
                   const isNew = item.status.includes("あり") && !item.status.includes("変化なし");
                   const isRead = item.viewed || globalViewedLinks.includes(uniqueKey);
                   const card = document.createElement("div");
-                  card.className = "card" + (isRead ? " read-card" : "") + (isNew && !isRead ? " is-new-item" : "");
+                  card.className = "card" + (isRead ? " read-card" : "") + (isNew && !isRead ? " is-new-item" : "") + (item.aiVerdict === "あかん" ? " ai-out-card" : "");
                   let dateTimeText = "";
                   if (item.dateStr) {
                     const d = new Date(item.dateStr);
@@ -2691,9 +2717,17 @@ async function syncPatrolData() {
                   }
                   card.innerHTML = htmlStr; container.appendChild(card);
                 });
+                // 🌟【AI精査】全部が対象外のタブは、隠している間だけ案内を出す
+                const aiOutN = currentItems.filter(function (it) { return it.aiVerdict === 'あかん'; }).length;
+                if (aiOutN > 0 && aiOutN === currentItems.length) {
+                  const aiNote = document.createElement('div');
+                  aiNote.className = 'no-data ai-out-note';
+                  aiNote.textContent = '「' + gasSiteName.replace(/^S/, '') + '」の新着は、AIが全部対象外にしました（' + aiOutN + '件）。上の「対象外」ボタンで表示できます。';
+                  container.appendChild(aiNote);
+                }
               }
             }
-            AppStorage.set("sh_history_data", JSON.stringify(globalHistoryData)); recalcBadges(); 
+            AppStorage.set("sh_history_data", JSON.stringify(globalHistoryData)); recalcBadges(); applyAiOut(); 
           } catch(err) { document.getElementById("lastUpdate").innerText = "通信失敗"; hideLoader(); }
         }
         function forceReload(btn) { btn.style.transform = "rotate(360deg)"; setTimeout(() => btn.style.transform = "rotate(0deg)", 500); syncPatrolData(); fetchDashboardData(); }

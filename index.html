@@ -144,6 +144,10 @@
     .pl-buy { background: #38a169; }
     .pl-half { background: #dd6b20; }
     .pl-solid { background: #e53e3e; }
+    .pl-ai { cursor: pointer; }
+    .pl-ai-buy { background: #2f855a; }
+    .pl-ai-check { background: #d69e2e; }
+    .pl-ai-out { background: #718096; }
     table.pl-rows { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 9px; overflow: hidden; }
     table.pl-rows th { font-size: 10px; color: #718096; font-weight: 700; background: #edf2f7; padding: 5px 6px; text-align: right; }
     table.pl-rows th:first-child { text-align: left; }
@@ -2478,6 +2482,46 @@
     //
     //   写真はリサーチのときにAmazonから取ってきたもので、
     //   サーバーが元々渡している。読み込みは遅延(画面に入った行だけ)。
+    // =========================================================
+    // 🌟【AI精査】ミニPCのClaudeが付けた判定を、一覧のラベルにする。
+    //   買い → 購入判定 / 要確認 → 要確認 / あかん → 対象外
+    //   判定が無い商品(AI精査を使っていない人・未精査)は今までの「買い／鉄板」のまま。
+    //   ラベルを押すと、判定の理由とメモを小さい画面で出す。
+    // =========================================================
+    var AI_VERDICT_STORE = {};
+    function aiBadgeHtml(item, uniqueKey) {
+      var v = String(item.aiVerdict || '');
+      var map = { '買い': ['購入判定', 'pl-ai-buy'], '要確認': ['要確認', 'pl-ai-check'], 'あかん': ['対象外', 'pl-ai-out'] };
+      if (!map[v]) return '';
+      AI_VERDICT_STORE[uniqueKey] = { verdict: v, label: map[v][0], reason: item.aiReason || '', note: item.aiNote || '', title: item.title || '' };
+      return '<span class="pl-badge pl-ai ' + map[v][1] + '" data-key="' + escapeHtml(uniqueKey) + '" onclick="showAiVerdict(event, this)">' + map[v][0] + ' ›</span>';
+    }
+    function showAiVerdict(ev, el) {
+      if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+      var d = AI_VERDICT_STORE[el.getAttribute('data-key')];
+      if (!d) return;
+      var m = document.getElementById('aiVerdictModal');
+      if (!m) {
+        m = document.createElement('div');
+        m.id = 'aiVerdictModal';
+        m.className = 'modal';
+        m.onclick = function (e) { if (e.target === m) m.style.display = 'none'; };
+        document.body.appendChild(m);
+      }
+      var color = d.verdict === '買い' ? '#2f855a' : (d.verdict === '要確認' ? '#b7791f' : '#718096');
+      m.innerHTML = '<div class="modal-content" style="max-width:420px;">' +
+        '<h3 style="margin-top:0;">🤖 AI判定</h3>' +
+        '<div style="font-size:13px; color:#4a5568; margin-bottom:8px;">' + escapeHtml(d.title) + '</div>' +
+        '<div style="display:inline-block; background:' + color + '; color:#fff; font-weight:700; padding:4px 12px; border-radius:999px; font-size:14px;">' + escapeHtml(d.label) + '</div>' +
+        '<div style="margin-top:12px; font-size:12px; font-weight:bold; color:#4a5568;">理由</div>' +
+        '<div style="font-size:14px; line-height:1.6; white-space:pre-wrap;">' + (escapeHtml(d.reason) || '—') + '</div>' +
+        (d.note ? '<div style="margin-top:10px; font-size:12px; font-weight:bold; color:#4a5568;">メモ</div>' +
+          '<div style="font-size:14px; line-height:1.6; white-space:pre-wrap;">' + escapeHtml(d.note) + '</div>' : '') +
+        '<div style="margin-top:16px; text-align:right;"><button style="background:#e2e8f0; color:#4a5568; border:none; padding:8px 18px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="document.getElementById(\'aiVerdictModal\').style.display=\'none\'">閉じる</button></div>' +
+        '</div>';
+      m.style.display = 'flex';
+    }
+
     function buildPatrolCardBody(item, gasSiteName, dateTimeText, uniqueKey) {
       const siteName = String(gasSiteName || '').replace(/^S/, '');
       const isAuction = (siteName === 'ヤフオク');
@@ -2514,7 +2558,7 @@
           ? '💎 中古が枯れています（出品者' + Number(item.usedOfferCount || 0) + '人）。相場が出せないので一発解析で確かめてください。'
           : '相場がまだ取れていません。一発解析で確かめてください。';
         return headHtml(
-          '<div class="item-meta"><span><span class="status-tag">' + escapeHtml(item.status) + '</span>' +
+          '<div class="item-meta"><span><span class="status-tag">' + escapeHtml(item.status) + '</span>' + aiBadgeHtml(item, uniqueKey) +
           (dateTimeText ? ' <span class="date-tag" style="font-size:11px; color:#a0aec0;">' + dateTimeText + '</span>' : '') +
           '</span><span class="price-tag">' + escapeHtml(isAuction ? '' : item.price) + '</span></div>' +
           '<div class="pl-note" style="margin-top:6px;">' + shNoMarket + '</div>'
@@ -2534,6 +2578,9 @@
         else if (okAvg && okMin) badge = '<span class="pl-badge pl-buy">買い</span>';
         else if (okAvg) badge = '<span class="pl-badge pl-half">平均のみ</span>';
       }
+      // 🌟【AI精査】判定がある商品は、AIのラベルに置き換える
+      const aiBadge = aiBadgeHtml(item, uniqueKey);
+      if (aiBadge) badge = aiBadge;
 
       const row = function (label, soubaVal, limitVal, profitVal, rateVal) {
         if (!(Number(soubaVal) > 0)) {
@@ -2552,7 +2599,7 @@
       };
 
       const topHtml = isAuction
-        ? '<div class="pl-top"><span class="status-tag">' + escapeHtml(item.status) + '</span>' +
+        ? '<div class="pl-top"><span class="status-tag">' + escapeHtml(item.status) + '</span>' + aiBadge +
           '<span class="pl-date">' + (dateTimeText || '') + '</span></div>'
         : '<div class="pl-top"><span class="pl-list">出品 <b>' + yen(listPrice) + '</b>' + badge + '</span>' +
           '<span class="pl-date">' + (dateTimeText || '') + '</span></div>';

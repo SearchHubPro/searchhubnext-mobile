@@ -27,8 +27,10 @@
     /* 🌙 ダークモード:画面全体の明暗をまとめて反転する(色味はだいたいそのまま)。
        商品写真・カメラ映像は二重に反転させて本来の見た目に戻す。
        暗い半透明の幕は反転すると白くなるので、白い幕にしておいて反転後に黒くなるようにする。 */
-    html.sh-dark { background:#fff; filter: invert(1) hue-rotate(180deg); }
-    html.sh-dark img, html.sh-dark video { filter: invert(1) hue-rotate(180deg); }
+    /* 真っ黒だと目にきついので、反転後にコントラストを下げて黒を濃いグレーにする(0.8 → 黒が#1a1a1aくらい)。
+       写真は逆に1.25倍して打ち消し、今の見た目のままにする(0.8×1.25=1)。 */
+    html.sh-dark { background:#fff; filter: invert(1) hue-rotate(180deg) contrast(0.8); }
+    html.sh-dark img, html.sh-dark video { filter: invert(1) hue-rotate(180deg) contrast(1.25); }
     html.sh-dark .modal, html.sh-dark #purchase-edit-modal, html.sh-dark #plan-locked-modal { background: rgba(255,255,255,0.6) !important; }
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Meiryo", sans-serif; 

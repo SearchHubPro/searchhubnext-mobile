@@ -41,8 +41,12 @@
     html.sh-dark { background:#fff; filter: invert(1) hue-rotate(180deg) contrast(0.8); }
     html.sh-dark img, html.sh-dark video { filter: invert(1) hue-rotate(180deg) contrast(1.25); }
     /* ヘッダーのロゴは白い四角が光るので、白を抜いた版に差し替える */
-    /* ヘッダー下の黒い線は反転すると白く光るので、目立たないグレーにする */
-    html.sh-dark .header { border-bottom-color: #d0d0d0; }
+    /* ヘッダーだけは反転に頼らず、色そのものを濃いグレーにする。
+       iPhoneは一番上の帯(時計・電池)の色を、ヘッダーの「設定上の色」から拾うので、白のままだと帯が白くなる。
+       ヘッダーにもう一度反転をかけて全体の反転を打ち消し、ここに書いた色がそのまま見えるようにする。 */
+    html.sh-dark .header { filter: invert(1) hue-rotate(180deg) contrast(1.25); background-color: #191919; color: #dcdcdc; border-bottom-color: #3a3a3a; }
+    html.sh-dark .header-btn { color: #c8c8c8; }
+    html.sh-dark .header img { filter: none; }
     html.sh-dark #headerLogo { content: url("images/logo_dark.png"); }
     /* 起動画面も白一面なので、背景を濃いグレーにした版に差し替える */
     html.sh-dark .splash-img { content: url("images/splash_dark.jpg"); }

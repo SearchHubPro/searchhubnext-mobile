@@ -31,6 +31,8 @@
        写真は逆に1.25倍して打ち消し、今の見た目のままにする(0.8×1.25=1)。 */
     html.sh-dark { background:#fff; filter: invert(1) hue-rotate(180deg) contrast(0.8); }
     html.sh-dark img, html.sh-dark video { filter: invert(1) hue-rotate(180deg) contrast(1.25); }
+    /* ヘッダーのロゴは白い四角が光るので、白を抜いた版に差し替える */
+    html.sh-dark #headerLogo { content: url("images/logo_dark.png"); }
     html.sh-dark .modal, html.sh-dark #purchase-edit-modal, html.sh-dark #plan-locked-modal { background: rgba(255,255,255,0.6) !important; }
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Meiryo", sans-serif; 

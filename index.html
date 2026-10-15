@@ -13,7 +13,16 @@
   <meta name="theme-color" content="#6d9eeb">
   <script>
     // 🌙 ダークモード:画面が出る前に付けて、白く光るのを防ぐ
-    try { if (localStorage.getItem('sh_dark_mode') === '1') document.documentElement.classList.add('sh-dark'); } catch (e) {}
+    //   iPhoneのホーム画面アプリは、一番上の帯(時計・電池)の色を起動の瞬間に読むので、ここで黒にしておく
+    try {
+      if (localStorage.getItem('sh_dark_mode') === '1') {
+        document.documentElement.classList.add('sh-dark');
+        var sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (sb) sb.setAttribute('content', 'black');
+        var tc = document.querySelector('meta[name="theme-color"]');
+        if (tc) tc.setAttribute('content', '#1a1a1a');
+      }
+    } catch (e) {}
   </script>
   
   <link rel="apple-touch-icon-precomposed" href="images/icon-180.png">
@@ -32,6 +41,8 @@
     html.sh-dark { background:#fff; filter: invert(1) hue-rotate(180deg) contrast(0.8); }
     html.sh-dark img, html.sh-dark video { filter: invert(1) hue-rotate(180deg) contrast(1.25); }
     /* ヘッダーのロゴは白い四角が光るので、白を抜いた版に差し替える */
+    /* ヘッダー下の黒い線は反転すると白く光るので、目立たないグレーにする */
+    html.sh-dark .header { border-bottom-color: #d0d0d0; }
     html.sh-dark #headerLogo { content: url("images/logo_dark.png"); }
     /* 起動画面も白一面なので、背景を濃いグレーにした版に差し替える */
     html.sh-dark .splash-img { content: url("images/splash_dark.jpg"); }
@@ -2778,6 +2789,8 @@ async function syncPatrolData() {
           AppStorage.set('sh_dark_mode', on ? '1' : '0');
           const meta = document.querySelector('meta[name="theme-color"]');
           if (meta) meta.setAttribute('content', on ? '#1a1a1a' : '#6d9eeb');
+          const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+          if (sb) sb.setAttribute('content', on ? 'black' : 'default');   // 一番上の帯は、アプリを開き直した時に変わる
           const cb = document.getElementById('cfgDarkMode');
           if (cb) cb.checked = !!on;
         }

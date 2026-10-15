@@ -11,6 +11,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="SearchHub">
   <meta name="theme-color" content="#6d9eeb">
+  <script>
+    // 🌙 ダークモード:画面が出る前に付けて、白く光るのを防ぐ
+    try { if (localStorage.getItem('sh_dark_mode') === '1') document.documentElement.classList.add('sh-dark'); } catch (e) {}
+  </script>
   
   <link rel="apple-touch-icon-precomposed" href="images/icon-180.png">
   <link rel="shortcut icon" href="images/icon-192.png">
@@ -20,6 +24,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
   
   <style>
+    /* 🌙 ダークモード:画面全体の明暗をまとめて反転する(色味はだいたいそのまま)。
+       商品写真・カメラ映像は二重に反転させて本来の見た目に戻す。
+       暗い半透明の幕は反転すると白くなるので、白い幕にしておいて反転後に黒くなるようにする。 */
+    html.sh-dark { background:#fff; filter: invert(1) hue-rotate(180deg); }
+    html.sh-dark img, html.sh-dark video { filter: invert(1) hue-rotate(180deg); }
+    html.sh-dark .modal, html.sh-dark #purchase-edit-modal, html.sh-dark #plan-locked-modal { background: rgba(255,255,255,0.6) !important; }
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Meiryo", sans-serif; 
       margin: 0; 
@@ -1370,6 +1380,10 @@
       <div style="font-size:11px; color:#718096; margin-top:4px; line-height:1.6;">
         スマホにGoogleアプリが入っていると、検索を押したときにそちらへ持っていかれます。アプリの中で開きたいときは、BingかDuckDuckGoにしてください。リンクを長押しすれば、その場で開き方を選ぶこともできます。
       </div>
+      <label for="cfgDarkMode" style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding:10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer;">
+        <span style="font-size:13px; font-weight:bold; color:#4a5568;">🌙 ダークモード</span>
+        <input type="checkbox" id="cfgDarkMode" onchange="setDarkMode(this.checked)" style="width:20px; height:20px; margin:0; cursor:pointer;">
+      </label>
       <button onclick="enablePushNotifications(this)" style="width:100%; background:#ff9900; color:white; padding:10px; border:none; border-radius:6px; font-weight:bold; margin-top:10px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">🔔 スマホに通知を送る許可をする</button>
       <div style="text-align:center; margin-top:14px;">
         <a href="https://billing.stripe.com/p/login/cNi6oGaoe0AD0EI0SV4AU00" target="_blank" rel="noopener" style="font-size:12px; color:#a0aec0; text-decoration:underline; cursor:pointer;"><i class="fas fa-file-invoice-dollar"></i> プラン変更・解約・お支払い状況の確認はこちら</a>
@@ -2752,6 +2766,22 @@ async function syncPatrolData() {
             }
           } catch (e) {}
         }
+        // 🌙 ダークモードの切り替え(押したらすぐ反映。この端末に覚えさせる)
+        function setDarkMode(on) {
+          document.documentElement.classList.toggle('sh-dark', !!on);
+          AppStorage.set('sh_dark_mode', on ? '1' : '0');
+          const meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', on ? '#1a1a1a' : '#6d9eeb');
+          const cb = document.getElementById('cfgDarkMode');
+          if (cb) cb.checked = !!on;
+        }
+        (function () {
+          const on = AppStorage.get('sh_dark_mode', '0') === '1';
+          const meta = document.querySelector('meta[name="theme-color"]');
+          if (on && meta) meta.setAttribute('content', '#1a1a1a');
+          const cb = document.getElementById('cfgDarkMode');
+          if (cb) cb.checked = on;
+        })();
         function closeConfig() { document.getElementById("configModal").style.display = "none"; }
         
         // 🌟 全ユーザー共通のマネージャーAPI URL(コードに固定埋め込み、購入者は入力不要)

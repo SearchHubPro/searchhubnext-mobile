@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="SearchHub">
   <meta name="theme-color" content="#6d9eeb">
   <!-- 🌟 アプリの版。更新するたびに書き換える(古い画面が出た時に、これを見比べて自動で読み込み直す) -->
-  <meta name="sh-build" content="2026-10-16b">
+  <meta name="sh-build" content="2026-10-16c">
   <script>
     // 🌙 ダークモード:画面が出る前に付けて、白く光るのを防ぐ
     //   iPhoneのホーム画面アプリは、一番上の帯(時計・電池)の色を起動の瞬間に読むので、ここで黒にしておく
@@ -137,6 +137,16 @@
     .dash-btn i { font-size: 26px; }
     .dash-dot { display: none; position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; background-color: #e53e3e; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 2px solid white; }
     .dash-dot.active { display: block; animation: pop 0.3s ease; }
+    /* 🌟【下タブ】ホーム・マネージャー・リサーチャー・ウォッチャー・スナイパーを画面の一番下に固定で並べる */
+    .sh-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 500; background: #fff; border-top: 1px solid #e2e8f0; display: flex; padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); }
+    .sh-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; color: #718096; font-size: 10px; font-weight: bold; position: relative; padding: 4px 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .sh-tab i { font-size: 20px; }
+    .sh-tab.active { color: #008296; }
+    .sh-tab .sh-tab-dot { display: none; position: absolute; top: 2px; left: calc(50% + 8px); width: 9px; height: 9px; border-radius: 50%; background: #e53e3e; border: 2px solid #fff; }
+    .sh-tab .sh-tab-dot.active { display: block; }
+    body { padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important; }
+    /* 下タブに入れた4つは、ホームのカードからは外す(赤い点の元として裏に残す) */
+    .dash-btn.in-tabbar { display: none !important; }
     .tabs-container { background-color: white; border-bottom: 1px solid #e2e8f0; position: sticky; top: calc(52px + env(safe-area-inset-top)); z-index: 99; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 !important; padding: 0 !important; }
     .tabs-container::-webkit-scrollbar { display: none; }
     /* 🌟 タブ帯を横にスクロールできるようにする。
@@ -469,13 +479,6 @@
         <button class="home-tab-btn" onclick="switchHomeTab('sales', this)">販売</button>
         <button class="home-tab-btn" onclick="switchHomeTab('fund', this)">資金</button>
         <button class="home-tab-btn" onclick="switchHomeTab('stock', this)">在庫</button>
-        <!-- 🌟 折りたたみボタン。タブの中身だけを閉じる(タブ自体は残す)。
-             閉じた状態は次に開いたときも覚えている。 -->
-        <button id="homeFoldBtn" onclick="toggleHomeFold()" title="折りたたむ"
-                style="flex:0 0 auto; padding:8px 10px; border:none; background:transparent;
-                       color:#565959; cursor:pointer; font-size:13px;">
-          <i class="fas fa-chevron-up"></i>
-        </button>
       </div>
       
       <div id="homeGraphContent">
@@ -573,19 +576,19 @@
         <i class="fab fa-amazon" style="color:#ff9900;"></i>Amazon リサーチ
         <span style="font-size:10px; color:#718096; font-weight:normal; margin-top:4px;">単体深掘り・利益シミュレーション</span>
       </button>
-      <button class="dash-btn" onclick="openView('view-manager-menu')">
+      <button class="dash-btn in-tabbar" onclick="openView('view-manager-menu')">
         <i class="fas fa-chart-bar" style="color:#1a365d;"></i>SearchHub Manager
         <span style="font-size:10px; color:#718096; font-weight:normal; margin-top:4px;">帳簿管理・月別分析・価格改定</span>
       </button>
-      <button class="dash-btn" onclick="openView('view-researcher-menu')">
+      <button class="dash-btn in-tabbar" onclick="openView('view-researcher-menu')">
         <i class="fas fa-clipboard-check" style="color:#a855f7;"></i>SearchHub Researcher<span class="dash-dot" id="dash-dot-researcher"></span>
         <span style="font-size:10px; color:#718096; font-weight:normal; margin-top:4px;">Keepa一括解析・利益商品開拓</span>
       </button>
-      <button class="dash-btn" onclick="openView('view-watcher')">
+      <button class="dash-btn in-tabbar" onclick="openView('view-watcher')">
         <i class="fas fa-eye" style="color:#07A27B;"></i>SearchHub Watcher<span class="dash-dot" id="dash-dot-watcher"></span>
         <span style="font-size:10px; color:#718096; font-weight:normal; margin-top:4px;">10サイト広域監視・新着ログ確認</span>
       </button>
-      <button class="dash-btn" onclick="openView('view-sniper')">
+      <button class="dash-btn in-tabbar" onclick="openView('view-sniper')">
         <i class="fas fa-crosshairs" style="color:#e53e3e;"></i>SearchHub Sniper<span class="dash-dot" id="dash-dot-sniper"></span>
         <span style="font-size:10px; color:#718096; font-weight:normal; margin-top:4px;">利益商品自動狙撃・即時購入ログ</span>
       </button>
@@ -2316,6 +2319,7 @@
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById(viewId).classList.add('active');
       currentActiveView = viewId;
+      if (typeof shTabMark === 'function') shTabMark(viewId);
       
       const titleEl = document.getElementById('headerTitle');
       const backBtn = document.getElementById('backBtn');
@@ -2523,7 +2527,7 @@
       loadOwnInventoryBackground(); // 👈 💡 これを追加！起動時に裏で在庫を取得！
       loadNotices(); // 🌟 お知らせ枠(システムの判定＋運営からのお知らせ)
       applyHomeTabPanels('turnover'); // 🌟 起動時は「概要」タブなので、資金・在庫パネルは隠しておく
-      toggleHomeFold(AppStorage.get('sh_home_folded', '1') === '1'); // 🌟 既定は閉じた状態
+      toggleHomeFold(false); // 🌟 下タブを入れてから、グラフはいつも開いた状態(折りたたみボタンは無し)
       // 🌟 画面を開いている間だけ、5分おきにお知らせを取り直す。
       //   これが無いと、届いても更新を押すまで出てこない。
       //   隠れている間は通信しない(通信量を無駄に使わないため)。
@@ -5594,7 +5598,7 @@ async function syncPatrolData() {
         toast = document.createElement('div');
         toast.id = 'sh-toast';
         // 🌟 文が長いと画面の外にはみ出して端が切れていたので、折り返すようにした。
-        toast.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(26,54,93,0.95); color:white; padding:12px 20px; border-radius:8px; font-weight:bold; font-size:14px; box-shadow:0 4px 10px rgba(0,0,0,0.3); z-index:10000; transition:opacity 0.3s; opacity:0; pointer-events:none; max-width:calc(100vw - 32px); box-sizing:border-box; white-space:normal; overflow-wrap:anywhere; line-height:1.5; text-align:center;";
+        toast.style.cssText = "position:fixed; bottom:calc(80px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); background:rgba(26,54,93,0.95); color:white; padding:12px 20px; border-radius:8px; font-weight:bold; font-size:14px; box-shadow:0 4px 10px rgba(0,0,0,0.3); z-index:10000; transition:opacity 0.3s; opacity:0; pointer-events:none; max-width:calc(100vw - 32px); box-sizing:border-box; white-space:normal; overflow-wrap:anywhere; line-height:1.5; text-align:center;";
         document.body.appendChild(toast);
       }
       toast.innerText = msg;
@@ -7891,5 +7895,37 @@ async function syncPatrolData() {
     .sh-toggle input:checked + .sh-slider { background-color: #38a169; }
     .sh-toggle input:checked + .sh-slider:before { transform: translateX(20px); }
   </style>
+  <!-- 🌟【下タブ】 -->
+  <nav class="sh-tabbar" id="shTabbar">
+    <button class="sh-tab active" data-view="view-home" onclick="shTabGo('view-home')"><i class="fas fa-home"></i>ホーム</button>
+    <button class="sh-tab" data-view="view-manager-menu" onclick="shTabGo('view-manager-menu')"><i class="fas fa-chart-bar"></i>マネージャー</button>
+    <button class="sh-tab" data-view="view-researcher-menu" onclick="shTabGo('view-researcher-menu')"><i class="fas fa-clipboard-check"></i>リサーチャー<span class="sh-tab-dot" data-src="dash-dot-researcher"></span></button>
+    <button class="sh-tab" data-view="view-watcher" onclick="shTabGo('view-watcher')"><i class="fas fa-eye"></i>ウォッチャー<span class="sh-tab-dot" data-src="dash-dot-watcher"></span></button>
+    <button class="sh-tab" data-view="view-sniper" onclick="shTabGo('view-sniper')"><i class="fas fa-crosshairs"></i>スナイパー<span class="sh-tab-dot" data-src="dash-dot-sniper"></span></button>
+  </nav>
+  <script>
+    // 🌟 下タブを押した時:そのツールの最初の画面へ。戻る(＜)を押したらホームに戻るよう、履歴はホームだけにする
+    function shTabGo(viewId) {
+      viewHistoryStack = viewId === 'view-home' ? [] : ['view-home'];
+      openView(viewId, true);
+      try { window.scrollTo(0, 0); } catch (e) {}
+    }
+    // 🌟 今いる画面のタブを青緑にする。ツールの中の画面(販売管理など)に進んだ時は、直前のタブのまま
+    function shTabMark(viewId) {
+      const tabs = document.querySelectorAll('#shTabbar .sh-tab');
+      if (![...tabs].some(t => t.dataset.view === viewId)) return;
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.view === viewId));
+    }
+    // 🌟 未読の赤い点は、ホームのカードの赤い点(裏に残してある)と同じ状態にそろえる
+    (function () {
+      document.querySelectorAll('#shTabbar .sh-tab-dot').forEach(dot => {
+        const src = document.getElementById(dot.dataset.src);
+        if (!src) return;
+        const sync = () => dot.classList.toggle('active', src.classList.contains('active'));
+        sync();
+        new MutationObserver(sync).observe(src, { attributes: true, attributeFilter: ['class'] });
+      });
+    })();
+  </script>
 </body>
 </html>

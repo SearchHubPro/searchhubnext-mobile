@@ -2425,6 +2425,9 @@
       const dashDotWatcher = document.getElementById('dash-dot-watcher');
       if (totalSniper > 0) dashDotSniper.classList.add('active'); else dashDotSniper.classList.remove('active');
       if (totalWatcher > 0) dashDotWatcher.classList.add('active'); else dashDotWatcher.classList.remove('active');
+      // 🌟 ホーム画面アイコンの赤い数字＝スナイパーの未読(対象外を除く)の件数。
+      //   アプリを閉じている間は、通知を受け取る側(firebase-messaging-sw.js)が
+      //   スナイパーの通知1件ごとに1足すので、その元になる数をここで渡しておく。
       if ('setAppBadge' in navigator) {
         if (totalSniper > 0) {
           navigator.setAppBadge(totalSniper).catch(e => console.log('Badge error:', e));
@@ -2432,6 +2435,14 @@
           navigator.clearAppBadge().catch(e => console.log('Badge clear error:', e));
         }
       }
+      saveSniperBadgeCount(totalSniper);
+    }
+    // 🌟 通知を受け取る側と共有する「スナイパー未読の件数」。両方から読めるキャッシュ置き場に入れる
+    function saveSniperBadgeCount(n) {
+      try {
+        if (!('caches' in window)) return;
+        caches.open('sh-badge').then(c => c.put('/sh-badge-count', new Response(String(n)))).catch(() => {});
+      } catch (e) {}
     }
     function markAsRead(element) {
       const card = element.closest('.card');
@@ -2515,8 +2526,7 @@
     });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
-        // 🌟 アプリを開いたら、ホーム画面アイコンの赤バッジを消す
-        try { if (navigator.clearAppBadge) navigator.clearAppBadge(); } catch (e) {}
+        // 🌟 アイコンの赤い数字は、一覧を読み直した後(recalcBadges)にスナイパー未読の数で付け直す
         const urlSniper = AppStorage.get("sh_sniper_url", ""); 
         const url10 = AppStorage.get("sh_tensite_url", "");
         if (urlSniper || url10) {

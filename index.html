@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="SearchHub">
   <meta name="theme-color" content="#6d9eeb">
   <!-- 🌟 アプリの版。更新するたびに書き換える(古い画面が出た時に、これを見比べて自動で読み込み直す) -->
-  <meta name="sh-build" content="2026-10-16c">
+  <meta name="sh-build" content="2026-10-16d">
   <script>
     // 🌙 ダークモード:画面が出る前に付けて、白く光るのを防ぐ
     //   iPhoneのホーム画面アプリは、一番上の帯(時計・電池)の色を起動の瞬間に読むので、ここで黒にしておく
@@ -697,7 +697,7 @@
             buybox平均が取れない商品（カートを取れる中古が90日で1件も無かった等）だけ、これまでのBと同じく<b>最安値</b>から出します。ただし最安値が90日平均より高いときは90日平均に戻します。<br>
             <b>【C】は鉄板値</b>から出します。よこよこの相場から一瞬だけ落ちて、すぐ元に戻る値段のことで、出したらすぐ買われる値段です。一番堅い代わりに拾ってくる件数は減ります。鉄板値が取れない商品はBの流れに落とします。
           </div>
-          <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">🚫 除外ワード(URL末尾用)</label>
+          <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">🚫 除外ワード(URL末尾用)<span style="font-weight:normal; color:#718096;"> … 言葉だけをスペース区切りで(頭の「-」は不要)</span></label>
           <textarea id="rs-excludeWords" rows="2" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:12px; margin-bottom:12px;"></textarea>
           <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:4px;">🚫 除外ブランド(改行区切り)</label>
           <textarea id="rs-excludeBrands" rows="2" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #cbd5e0; border-radius:6px; font-size:12px; margin-bottom:12px;"></textarea>
@@ -4263,7 +4263,8 @@ async function syncPatrolData() {
         //   夜の自動確認と同じ条件で見えるよう、設定の除外ワードも同じ形で足す。
         let researcherExcludeWords = "";
         function researcherNgWords() {
-          return String(researcherExcludeWords || "").split(/[\s　,、]+/).filter(Boolean);
+          // 🌟 頭に「-」を付けて入れてあっても外す(付けたままだと「--ジャンク」になり除外が効かない)
+          return String(researcherExcludeWords || "").split(/[\s　,、]+/).map(w => w.replace(/^[-－−]+/, "")).filter(Boolean);
         }
         function researcherKeywordOf(index) {
           const el = document.getElementById('keyword_' + index);

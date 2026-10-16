@@ -11,6 +11,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="SearchHub">
   <meta name="theme-color" content="#6d9eeb">
+  <!-- 🌟 アプリの版。更新するたびに書き換える(古い画面が出た時に、これを見比べて自動で読み込み直す) -->
+  <meta name="sh-build" content="2026-10-16a">
   <script>
     // 🌙 ダークモード:画面が出る前に付けて、白く光るのを防ぐ
     //   iPhoneのホーム画面アプリは、一番上の帯(時計・電池)の色を起動の瞬間に読むので、ここで黒にしておく
@@ -2797,6 +2799,33 @@ async function syncPatrolData() {
             }
           } catch (e) {}
         }
+        // 🌟【古い版が出たら自動で読み込み直す】
+        //   iPhoneはホーム画面アプリを閉じても裏で眠らせていて、開き直すと前の画面をそのまま出すことがある。
+        //   また置き場所(GitHub Pages)は、更新から10分ほど古いファイルを使わせることがある。
+        //   そこで、開いた時と裏から戻った時に、置き場所の最新ファイルの版(sh-build)と見比べ、
+        //   違っていれば最新を取り直して1回だけ読み込み直す(同じ版で何度も繰り返さないよう印を付ける)。
+        async function checkAppUpdate() {
+          try {
+            const meta = document.querySelector('meta[name="sh-build"]');
+            const mine = meta ? meta.getAttribute('content') : '';
+            if (!mine) return;
+            const url = location.origin + location.pathname;
+            const res = await fetch(url + '?_v=' + Date.now(), { cache: 'no-store' });
+            if (!res.ok) return;
+            const m = (await res.text()).match(/<meta name="sh-build" content="([^"]+)">/);
+            const latest = m ? m[1] : '';
+            if (!latest || latest === mine) return;
+            let done = '';
+            try { done = sessionStorage.getItem('sh_reloaded_for') || ''; } catch (e) {}
+            if (done === latest) return;
+            try { sessionStorage.setItem('sh_reloaded_for', latest); } catch (e) {}
+            try { await fetch(url, { cache: 'reload' }); } catch (e) {}
+            location.reload();
+          } catch (e) {}
+        }
+        setTimeout(checkAppUpdate, 1500);
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkAppUpdate(); });
+
         // 🌙 ダークモードの切り替え(押したらすぐ反映。この端末に覚えさせる)
         function setDarkMode(on) {
           document.documentElement.classList.toggle('sh-dark', !!on);
